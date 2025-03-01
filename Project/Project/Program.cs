@@ -42,7 +42,7 @@ namespace Project
         static void Main(string[] args)
         {
             WindowOptions windowOptions = WindowOptions.Default;
-            windowOptions.Title = "1. szeminárium - háromszög";
+            windowOptions.Title = "Lab1-2 Kocka";
             windowOptions.Size = new Silk.NET.Maths.Vector2D<int>(500, 500);
 
             graphicWindow = Window.Create(windowOptions);
@@ -109,22 +109,48 @@ namespace Project
             Gl.BindVertexArray(vao);
 
             float[] vertexArray = new float[] {
-                -0.5f, -0.5f, 0.0f,
-                +0.5f, -0.5f, 0.0f,
-                 0.0f, +0.5f, 0.0f,
-                 1f, 1f, 0f
+                -0.0f, -1.0f, 0.0f,     //0
+                -0.0f, 0.0f, 0.0f,      //1
+                -0.75f, -0.50f, 0.0f,   //2
+                -0.75f, +0.50f, 0.0f,   //3
+
+                -0.0f, -1.0f, 0.0f,     //4
+                -0.0f, 0.0f, 0.0f,      //5
+                +0.75f, -0.50f, 0.0f,   //6
+                +0.75f, +0.50f, 0.0f,   //7
+
+                0.0f, 0.0f, 0.0f,       //8
+                0.75f, 0.50f, 0.0f,     //9
+                -0.75f, 0.50f, 0.0f,    //10
+                0.0f, 1.0f, 0.0f,       //11
             };
 
             float[] colorArray = new float[] {
+                 1.0f, 0.0f, 0.0f, 1.0f,
                 1.0f, 0.0f, 0.0f, 1.0f,
-                0.0f, 1.0f, 0.0f, 1.0f,
+                1.0f, 0.0f, 0.0f, 1.0f,
+                1.0f, 0.0f, 0.0f, 1.0f,
+
                 0.0f, 0.0f, 1.0f, 1.0f,
-                1.0f, 0.0f, 0.0f, 1.0f,
+                0.0f, 0.0f, 1.0f, 0.0f,
+                0.0f, 0.0f, 1.0f, 1.0f,
+                0.0f, 0.0f, 1.0f, 0.0f,
+
+                0.0f, 1.0f, 0.0f, 1.0f,
+                0.0f, 1.0f, 0.0f, 1.0f,
+                0.0f, 1.0f, 0.0f, 1.0f,
+                0.0f, 1.0f, 0.0f, 1.0f,
             };
 
             uint[] indexArray = new uint[] {
                 0, 1, 2,
-                2, 1, 3
+                1, 2, 3,
+
+                4, 5, 6,
+                5, 6, 7,
+
+               8, 9, 10,
+               9, 10, 11,
             };
 
             uint vertices = Gl.GenBuffer();

@@ -41,10 +41,10 @@ namespace Project
 
         private static void CheckGLError(string operation)
         {
-            GLEnum error = (GLEnum)Gl.GetError();
+            var error = Gl.GetError();
             if (error != GLEnum.NoError)
             {
-                Console.WriteLine($"OpenGL error after {operation}: {error}");
+                Console.WriteLine($"OpenGL Error after {operation}: {error}");
             }
         }
 
@@ -76,31 +76,33 @@ namespace Project
             uint fshader = Gl.CreateShader(ShaderType.FragmentShader);
 
             Gl.ShaderSource(vshader, VertexShaderSource);
-            Gl.CompileShader(vshader);
-            CheckGLError("Compile vertex shader");
-            Gl.GetShader(vshader, ShaderParameterName.CompileStatus, out int vStatus);
-            if (vStatus != (int)GLEnum.True)
-                throw new Exception("Vertex shader failed to compile: " + Gl.GetShaderInfoLog(vshader));
-
             Gl.ShaderSource(fshader, FragmentShaderSource);
-            Gl.CompileShader(fshader);
-            CheckGLError("Compile fragment shader");
 
+            // ERROR: LinkProgram called before CompileShader and AttachShader
             program = Gl.CreateProgram();
+            Gl.LinkProgram(program);
+            CheckGLError("Premature LinkProgram");
+
+            // Now compile shaders after already linking program
+            Gl.CompileShader(vshader);
+            Gl.CompileShader(fshader);
+            CheckGLError("Late Shader Compilation");
+
+            // Attach shaders after already linking program
             Gl.AttachShader(program, vshader);
             Gl.AttachShader(program, fshader);
-            Gl.LinkProgram(program);
-            CheckGLError("Link program");
-            Gl.DetachShader(program, vshader);
-            Gl.DetachShader(program, fshader);
-            Gl.DeleteShader(vshader);
-            Gl.DeleteShader(fshader);
+            CheckGLError("Late Shader Attachment");
 
             Gl.GetProgram(program, GLEnum.LinkStatus, out var status);
             if (status == 0)
             {
                 Console.WriteLine($"Error linking shader {Gl.GetProgramInfoLog(program)}");
             }
+
+            Gl.DetachShader(program, vshader);
+            Gl.DetachShader(program, fshader);
+            Gl.DeleteShader(vshader);
+            Gl.DeleteShader(fshader);
         }
 
         private static void GraphicWindow_Update(double deltaTime)
@@ -115,17 +117,15 @@ namespace Project
             //Console.WriteLine($"Render after {deltaTime} [s]");
 
             Gl.Clear(ClearBufferMask.ColorBufferBit);
-            CheckGLError("Clear");
 
             uint vao = Gl.GenVertexArray();
             Gl.BindVertexArray(vao);
-            CheckGLError("Bind VAO");
 
             float[] vertexArray = new float[] {
                 -0.5f, -0.5f, 0.0f,
                 +0.5f, -0.5f, 0.0f,
-                0.0f, +0.5f, 0.0f,
-                1.0f, 1.0f, 0.0f
+                 0.0f, +0.5f, 0.0f,
+                 1.0f, 1.0f, 0.0f
             };
 
             float[] colorArray = new float[] {
@@ -142,51 +142,32 @@ namespace Project
 
             uint vertices = Gl.GenBuffer();
             Gl.BindBuffer(GLEnum.ArrayBuffer, vertices);
-            CheckGLError("Bind vertex buffer");
             Gl.BufferData(GLEnum.ArrayBuffer, (ReadOnlySpan<float>)vertexArray.AsSpan(), GLEnum.StaticDraw);
-            CheckGLError("Buffer data vertices");
             Gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 0, null);
-            CheckGLError("Vertex attrib pointer");
-
-            // ERROR: Changed location from 0 to 2 (doesn't match shader)
-            Gl.EnableVertexAttribArray(2);
-            CheckGLError("Enable vertex attrib array");
+            Gl.EnableVertexAttribArray(0);
 
             uint colors = Gl.GenBuffer();
             Gl.BindBuffer(GLEnum.ArrayBuffer, colors);
-            CheckGLError("Bind color buffer");
             Gl.BufferData(GLEnum.ArrayBuffer, (ReadOnlySpan<float>)colorArray.AsSpan(), GLEnum.StaticDraw);
-            CheckGLError("Buffer data colors");
             Gl.VertexAttribPointer(1, 4, VertexAttribPointerType.Float, false, 0, null);
-            CheckGLError("Vertex attrib pointer colors");
-
-            // ERROR: Changed location from 1 to 3 (doesn't match shader)
-            Gl.EnableVertexAttribArray(3);
-            CheckGLError("Enable vertex attrib array colors");
+            Gl.EnableVertexAttribArray(1);
 
             uint indices = Gl.GenBuffer();
             Gl.BindBuffer(GLEnum.ElementArrayBuffer, indices);
-            CheckGLError("Bind element buffer");
             Gl.BufferData(GLEnum.ElementArrayBuffer, (ReadOnlySpan<uint>)indexArray.AsSpan(), GLEnum.StaticDraw);
-            CheckGLError("Buffer data indices");
             Gl.BindBuffer(GLEnum.ArrayBuffer, 0);
-            CheckGLError("Unbind array buffer");
             Gl.UseProgram(program);
-            CheckGLError("Use program");
 
-            Gl.DrawElements(GLEnum.Triangles, (uint)indexArray.Length, GLEnum.UnsignedInt, null);
-            CheckGLError("Draw elements");
+            Gl.DrawElements(GLEnum.Triangles, (uint)indexArray.Length, GLEnum.UnsignedInt, null); // we used element buffer
+            CheckGLError("DrawElements");
             Gl.BindBuffer(GLEnum.ElementArrayBuffer, 0);
-            CheckGLError("Unbind element buffer");
             Gl.BindVertexArray(vao);
-            CheckGLError("Bind VAO again");
 
             // always unbound the vertex buffer first, so no halfway results are displayed by accident
             Gl.DeleteBuffer(vertices);
             Gl.DeleteBuffer(colors);
             Gl.DeleteBuffer(indices);
             Gl.DeleteVertexArray(vao);
-            CheckGLError("Delete buffers and VAO");
         }
     }
 }

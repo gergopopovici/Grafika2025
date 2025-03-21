@@ -121,12 +121,11 @@ namespace Project
             Gl.BindVertexArray(vao);
             CheckGLError("Bind VAO");
 
-            // ERROR: Corrupt vertex array
             float[] vertexArray = new float[] {
                 -0.5f, -0.5f, 0.0f,
                 +0.5f, -0.5f, 0.0f,
                 0.0f, +0.5f, 0.0f,
-                999.0f  // Invalid coordinate, should be 3 values per vertex
+                1.0f, 1.0f, 0.0f
             };
 
             float[] colorArray = new float[] {
@@ -138,12 +137,12 @@ namespace Project
 
             uint[] indexArray = new uint[] {
                 0, 1, 2,
-                2, 1, 3  // Trying to access invalid vertex 3
+                2, 1, 3
             };
 
             uint vertices = Gl.GenBuffer();
-            Gl.BindBuffer(GLEnum.ArrayBuffer, vertices);
-            CheckGLError("Bind vertex buffer");
+            // ERROR: Removed BindBuffer call before BufferData
+            // Gl.BindBuffer(GLEnum.ArrayBuffer, vertices);
             Gl.BufferData(GLEnum.ArrayBuffer, (ReadOnlySpan<float>)vertexArray.AsSpan(), GLEnum.StaticDraw);
             CheckGLError("Buffer data vertices");
             Gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 0, null);
@@ -154,12 +153,13 @@ namespace Project
             uint colors = Gl.GenBuffer();
             Gl.BindBuffer(GLEnum.ArrayBuffer, colors);
             CheckGLError("Bind color buffer");
+            // ERROR: Swapped EnableVertexAttribArray and BufferData calls
+            Gl.EnableVertexAttribArray(1);
+            CheckGLError("Enable vertex attrib array colors");
             Gl.BufferData(GLEnum.ArrayBuffer, (ReadOnlySpan<float>)colorArray.AsSpan(), GLEnum.StaticDraw);
             CheckGLError("Buffer data colors");
             Gl.VertexAttribPointer(1, 4, VertexAttribPointerType.Float, false, 0, null);
             CheckGLError("Vertex attrib pointer colors");
-            Gl.EnableVertexAttribArray(1);
-            CheckGLError("Enable vertex attrib array colors");
 
             uint indices = Gl.GenBuffer();
             Gl.BindBuffer(GLEnum.ElementArrayBuffer, indices);
@@ -178,6 +178,7 @@ namespace Project
             Gl.BindVertexArray(vao);
             CheckGLError("Bind VAO again");
 
+            // always unbound the vertex buffer first, so no halfway results are displayed by accident
             Gl.DeleteBuffer(vertices);
             Gl.DeleteBuffer(colors);
             Gl.DeleteBuffer(indices);

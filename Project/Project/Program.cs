@@ -141,25 +141,28 @@ namespace Project
             };
 
             uint vertices = Gl.GenBuffer();
-            // ERROR: Removed BindBuffer call before BufferData
-            // Gl.BindBuffer(GLEnum.ArrayBuffer, vertices);
+            Gl.BindBuffer(GLEnum.ArrayBuffer, vertices);
+            CheckGLError("Bind vertex buffer");
             Gl.BufferData(GLEnum.ArrayBuffer, (ReadOnlySpan<float>)vertexArray.AsSpan(), GLEnum.StaticDraw);
             CheckGLError("Buffer data vertices");
             Gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 0, null);
             CheckGLError("Vertex attrib pointer");
-            Gl.EnableVertexAttribArray(0);
+
+            // ERROR: Changed location from 0 to 2 (doesn't match shader)
+            Gl.EnableVertexAttribArray(2);
             CheckGLError("Enable vertex attrib array");
 
             uint colors = Gl.GenBuffer();
             Gl.BindBuffer(GLEnum.ArrayBuffer, colors);
             CheckGLError("Bind color buffer");
-            // ERROR: Swapped EnableVertexAttribArray and BufferData calls
-            Gl.EnableVertexAttribArray(1);
-            CheckGLError("Enable vertex attrib array colors");
             Gl.BufferData(GLEnum.ArrayBuffer, (ReadOnlySpan<float>)colorArray.AsSpan(), GLEnum.StaticDraw);
             CheckGLError("Buffer data colors");
             Gl.VertexAttribPointer(1, 4, VertexAttribPointerType.Float, false, 0, null);
             CheckGLError("Vertex attrib pointer colors");
+
+            // ERROR: Changed location from 1 to 3 (doesn't match shader)
+            Gl.EnableVertexAttribArray(3);
+            CheckGLError("Enable vertex attrib array colors");
 
             uint indices = Gl.GenBuffer();
             Gl.BindBuffer(GLEnum.ElementArrayBuffer, indices);

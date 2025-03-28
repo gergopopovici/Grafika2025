@@ -1,4 +1,5 @@
-﻿using lab2_1;
+﻿using Project;
+using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
@@ -18,6 +19,10 @@ namespace Project
 
         // OpenGL context
         private static GL Gl;
+
+        private static int rollDirecttion = 1;  // Direction of cube rotation (1 or -1)
+
+        private static CubeArrangementModel cubeArrangementModel = new();  // Model for cube animation state
 
         // Array of Vertex Array Objects - one for each of the 27 cubes (3x3x3)
         private static uint[] vao = new uint[27];
@@ -114,6 +119,12 @@ namespace Project
             // Enable depth testing (closer objects obscure farther ones)
             Gl.Enable(EnableCap.DepthTest);
             Gl.DepthFunc(DepthFunction.Lequal);
+
+            IInputContext inputContext = window.CreateInput();
+            foreach (var keyboard in inputContext.Keyboards)
+            {
+                keyboard.KeyDown += Keyboard_KeyDown;
+            }
         }
 
         // Compile and link shader program
@@ -150,6 +161,41 @@ namespace Project
             Gl.DetachShader(program, fshader);
             Gl.DeleteShader(vshader);
             Gl.DeleteShader(fshader);
+        }
+
+        private static void Keyboard_KeyDown(IKeyboard keyboard, Key key, int arg3)
+        {
+            switch (key)
+            {
+                case Key.Left:
+                    cameraDescriptor.DecreaseZYAngle();  
+                    break;
+                case Key.Right:
+                    cameraDescriptor.IncreaseZYAngle(); 
+                    break;
+                case Key.Down:
+                    cameraDescriptor.IncreaseDistance(); 
+                    break;
+                case Key.Up:
+                    cameraDescriptor.DecreaseDistance();  
+                    break;
+                case Key.U:
+                    cameraDescriptor.IncreaseZXAngle();  
+                    break;
+                case Key.D:
+                    cameraDescriptor.DecreaseZXAngle(); 
+                    break;
+                case Key.Space:
+                    cubeArrangementModel.AnimationEnabeld = true;
+                    cubeArrangementModel.OldDirection = rollDirecttion;
+                    rollDirecttion = 1;
+                    break;
+                case Key.Backspace:
+                    cubeArrangementModel.AnimationEnabeld = true;
+                    cubeArrangementModel.OldDirection = rollDirecttion;
+                    rollDirecttion = -1;
+                    break;
+            }
         }
 
         // Called each frame before rendering - for updates that don't require OpenGL

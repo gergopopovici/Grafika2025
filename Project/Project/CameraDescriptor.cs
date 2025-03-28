@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace lab2_1
+namespace Project
 {
     internal class CameraDescriptor
     {

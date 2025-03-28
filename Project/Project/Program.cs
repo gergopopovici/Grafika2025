@@ -70,7 +70,7 @@ namespace Project
         static void Main(string[] args)
         {
             WindowOptions windowOptions = WindowOptions.Default;
-            windowOptions.Title = "lab2_1";
+            windowOptions.Title = "lab2_2";
             windowOptions.Size = new Vector2D<int>(500, 500);
 
             window = Window.Create(windowOptions);
@@ -204,7 +204,7 @@ namespace Project
             //Console.WriteLine($"Update after {deltaTime} [s].");
             // This method runs in a separate thread
             // Don't make any OpenGL calls here - they're not thread-safe
-            //cubeArrangementModel.AdvanceTime(deltaTime);  // Would handle cube rotations/animations
+            cubeArrangementModel.AdvanceTime(deltaTime, rollDirecttion);
         }
 
         // Called each frame to render the scene
@@ -230,19 +230,30 @@ namespace Project
                 {
                     for (int k = 0; k < 3; k++)  // X axis (left/right)
                     {
-                        // Create model matrix for this cube
-                        Matrix4X4<float> diamondScale = Matrix4X4.CreateScale(1.0f);  // Unit scale
-                        // Position cube with small gaps between (1.05 instead of 1.0)
+                        Matrix4X4<float> diamondScale = Matrix4X4.CreateScale(1.0f);
                         Matrix4X4<float> trans = Matrix4X4.CreateTranslation(
                             (k - 1) * 1.05f,  // X position (-1.05, 0, or 1.05)
                             (i - 1) * 1.05f,  // Y position (-1.05, 0, or 1.05)
                             (j - 1) * 1.05f   // Z position (-1.05, 0, or 1.05)
                         );
-                        Matrix4X4<float> modelMatrix = diamondScale * trans;
-                        SetModelMatrix(modelMatrix);
 
-                        // Bind this cube's VAO and draw it
-                        Gl.BindVertexArray(vao[i * 9 + j * 3 + k]);  // Calculate index in the VAO array
+                        // Add special rotation for top layer cubes (i == 2)
+                        if (i == 2)
+                        {
+                            Matrix4X4<float> rotx = Matrix4X4.CreateRotationX((float)Math.PI / 4f);
+                            Matrix4X4<float> rotz = Matrix4X4.CreateRotationZ((float)Math.PI / 4f);
+                            Matrix4X4<float> rotGlobY = Matrix4X4.CreateRotationY((float)cubeArrangementModel.DiamondCubeAngleRevolutionOnGlobalY);
+                            Matrix4X4<float> rotLocY = Matrix4X4.CreateRotationY((float)cubeArrangementModel.DiamondCubeAngleOwnRevolution);
+                            Matrix4X4<float> modelMatrix = diamondScale * trans * rotLocY;
+                            SetModelMatrix(modelMatrix);
+                        }
+                        else
+                        {
+                            Matrix4X4<float> modelMatrix = diamondScale * trans;
+                            SetModelMatrix(modelMatrix);
+                        }
+
+                        Gl.BindVertexArray(vao[i * 9 + j * 3 + k]);
                         Gl.DrawElements(GLEnum.Triangles, indexLength, GLEnum.UnsignedInt, null);
                     }
                 }

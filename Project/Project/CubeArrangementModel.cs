@@ -1,6 +1,4 @@
-﻿using Silk.NET.Vulkan;
-
-namespace Project
+﻿namespace Project
 {
     internal class CubeArrangementModel
     {
@@ -13,10 +11,6 @@ namespace Project
         /// The time of the simulation. It helps to calculate time dependent values.
         /// </summary>
         private double Time { get; set; } = 0;
-
-        private double OldTime { get; set; } = 0;
-
-        public double OldDirection { get; set; } = 0;
 
         /// <summary>
         /// The value by which the center cube is scaled. It varies between 0.8 and 1.2 with respect to the original size.
@@ -33,36 +27,21 @@ namespace Project
         /// </summary>
         public double DiamondCubeAngleRevolutionOnGlobalY { get; private set; } = 0;
 
-        internal void AdvanceTime(double deltaTime, int rollDirection)
+        internal void AdvanceTime(double deltaTime)
         {
-            if (Math.Abs(Time - OldTime) >= 90.0f && AnimationEnabeld)
-            {
-                AnimationEnabeld = false;
-                OldTime = Time;
-            }
             // we do not advance the simulation when animation is stopped
             if (!AnimationEnabeld)
                 return;
 
-            if (Time == 360.0f && rollDirection == 1)
-            {
-                Time = deltaTime = 0;
-            }
-            else if (Time == 0.0f && rollDirection == 0)
-            {
-                Time = deltaTime = 360;
-            }
             // set a simulation time
-            Time += (3.0f * rollDirection);
+            Time += deltaTime;
 
             // lets produce an oscillating scale in time
             CenterCubeScale = 1 + 0.2 * Math.Sin(1.5 * Time);
 
-            // the rotation angle is time x angular velocity;
-            DiamondCubeAngleRevolutionOnGlobalY = Time * 1;
+            DiamondCubeAngleOwnRevolution = Time * 10;
 
-            DiamondCubeAngleOwnRevolution = (Math.PI / 180) * Time;
+            DiamondCubeAngleRevolutionOnGlobalY = -Time;
         }
     }
 }
-

@@ -1,15 +1,10 @@
 ﻿using Silk.NET.Maths;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Project
 {
     internal class CameraDescriptor
     {
-        private double DistanceToOrigin = 1;
+        private double DistanceToOrigin = 8d;
 
         private double AngleToZYPlane = 0;
 
@@ -19,6 +14,9 @@ namespace Project
 
         private const double AngleChangeStepSize = Math.PI / 180 * 5;
 
+        /// <summary>
+        /// Gets the position of the camera.
+        /// </summary>
         public Vector3D<float> Position
         {
             get
@@ -60,11 +58,6 @@ namespace Project
             AngleToZXPlane -= AngleChangeStepSize;
         }
 
-        public void SetZXAngle(float angle)
-        { 
-            AngleToZXPlane = angle; 
-        }
-
         public void IncreaseZYAngle()
         {
             AngleToZYPlane += AngleChangeStepSize;
@@ -74,11 +67,6 @@ namespace Project
         public void DecreaseZYAngle()
         {
             AngleToZYPlane -= AngleChangeStepSize;
-        }
-
-        public void SetZYAngle(float angle)
-        {
-            AngleToZYPlane += angle;
         }
 
         public void IncreaseDistance()
@@ -91,15 +79,10 @@ namespace Project
             DistanceToOrigin = DistanceToOrigin / DistanceScaleFactor;
         }
 
-        public void SetDistance(float distance)
-        {
-            DistanceToOrigin = distance;
-        }
-
         private static Vector3D<float> GetPointFromAngles(double distanceToOrigin, double angleToMinZYPlane, double angleToMinZXPlane)
         {
-            var x = distanceToOrigin * Math.Sin(angleToMinZYPlane) * Math.Cos(angleToMinZXPlane);
-            var z = distanceToOrigin * Math.Cos(angleToMinZYPlane) * Math.Cos(angleToMinZXPlane);
+            var x = distanceToOrigin * Math.Cos(angleToMinZXPlane) * Math.Sin(angleToMinZYPlane);
+            var z = distanceToOrigin * Math.Cos(angleToMinZXPlane) * Math.Cos(angleToMinZYPlane);
             var y = distanceToOrigin * Math.Sin(angleToMinZXPlane);
 
             return new Vector3D<float>((float)x, (float)y, (float)z);

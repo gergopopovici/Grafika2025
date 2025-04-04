@@ -5,7 +5,6 @@ using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.OpenGL.Extensions.ImGui;
 using Silk.NET.Windowing;
-using System.Numerics;
 
 namespace Project
 {
@@ -25,12 +24,18 @@ namespace Project
 
         private static uint program;
 
-        private static GlCube[] glBarrel1 = new GlCube[18];
-        private static GlCube[] glBarrel2 = new GlCube[18];
+        private static GlCube glCubeCentered;
 
-        // private static GlCube glCubeRotating;
+        private static GlCube glCubeRotating;
 
         private static float Shininess = 50;
+        private static float AmbientStrength = 0.2f;
+        private static float DiffuseStrength = 0.3f;
+        private static float SpecularStrength = 0.5f;
+        private static float LightColorRed = 1.0f;
+        private static float LightColorGreen = 1.0f;
+        private static float LightColorBlue = 1.0f;
+        private static int SelectedColorIndex = 0;
 
         private const string ModelMatrixVariableName = "uModel";
         private const string NormalMatrixVariableName = "uNormal";
@@ -65,6 +70,9 @@ namespace Project
         private const string LightPositionVariableName = "lightPos";
         private const string ViewPosVariableName = "viewPos";
         private const string ShininessVariableName = "shininess";
+        private const string AmbientStrengthVariableName = "ambientStrength";
+        private const string DiffuseStrengthVariableName = "diffuseStrength";
+        private const string SpecularStrengthVariableName = "specularStrength";
 
         private static readonly string FragmentShaderSource = @"
         #version 330 core
@@ -73,6 +81,9 @@ namespace Project
         uniform vec3 lightPos;
         uniform vec3 viewPos;
         uniform float shininess;
+        uniform float ambientStrength;
+        uniform float diffuseStrength;
+        uniform float specularStrength;
 
         out vec4 FragColor;
 
@@ -82,16 +93,14 @@ namespace Project
 
         void main()
         {
-            float ambientStrength = 0.2;
+          
             vec3 ambient = ambientStrength * lightColor;
 
-            float diffuseStrength = 0.3;
             vec3 norm = normalize(outNormal);
             vec3 lightDir = normalize(lightPos - outWorldPosition);
             float diff = max(dot(norm, lightDir), 0.0);
             vec3 diffuse = diff * lightColor * diffuseStrength;
 
-            float specularStrength = 0.5;
             vec3 viewDir = normalize(viewPos - outWorldPosition);
             vec3 reflectDir = reflect(-lightDir, norm);
             float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess) / max(dot(norm,viewDir), -dot(norm,lightDir));
@@ -105,7 +114,7 @@ namespace Project
         static void Main(string[] args)
         {
             WindowOptions windowOptions = WindowOptions.Default;
-            windowOptions.Title = "lab3_1";
+            windowOptions.Title = "lab3_2";
             windowOptions.Size = new Vector2D<int>(500, 500);
 
             // on some systems there is no depth buffer by default, so we need to make sure one is created
@@ -150,7 +159,7 @@ namespace Project
 
             LinkProgram();
 
-            //Gl.Enable(EnableCap.CullFace);
+            Gl.Enable(EnableCap.CullFace);
 
             Gl.Enable(EnableCap.DepthTest);
             Gl.DepthFunc(DepthFunction.Lequal);
@@ -227,7 +236,6 @@ namespace Project
 
         private static unsafe void Window_Render(double deltaTime)
         {
-            //Console.WriteLine($"Render after {deltaTime} [s].");
 
             // GL here
             Gl.Clear(ClearBufferMask.ColorBufferBit);
@@ -243,13 +251,26 @@ namespace Project
             SetLightPosition();
             SetViewerPosition();
             SetShininess();
-
+            SetAmbientStrength();
+            SetDiffuseStrength();
+            SetSpecularStrength();
+            SetUpObjects();
             DrawPulsingCenterCube();
+            DrawRevolvingCube();
 
+            //string[] items = { "Red", "Green", "Blue", "Magenta", "Cyan", "Yellow" };
             //ImGuiNET.ImGui.ShowDemoWindow();
+            string[] items = { "Red", "Green", "Blue", "Magenta", "Cyan", "Yellow" };
             ImGuiNET.ImGui.Begin("Lighting properties",
                 ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar);
             ImGuiNET.ImGui.SliderFloat("Shininess", ref Shininess, 1, 200);
+            ImGuiNET.ImGui.SliderFloat("AmbientStrength", ref AmbientStrength, 0.0f, 1.0f);
+            ImGuiNET.ImGui.SliderFloat("DiffuseStrength", ref DiffuseStrength, 0.0f, 1.0f);
+            ImGuiNET.ImGui.SliderFloat("SpecularStrength", ref SpecularStrength, 0.0f, 1.0f);
+            ImGuiNET.ImGui.SliderFloat("Light Color Red", ref LightColorRed, 0.0f, 1.0f);
+            ImGuiNET.ImGui.SliderFloat("Light Color Green", ref LightColorGreen, 0.0f, 1.0f);
+            ImGuiNET.ImGui.SliderFloat("Light Color Blue", ref LightColorBlue, 0.0f, 1.0f);
+            ImGuiNET.ImGui.Combo("Cube Face Color", ref SelectedColorIndex, items, items.Length);
             ImGuiNET.ImGui.End();
 
 
@@ -265,7 +286,7 @@ namespace Project
                 throw new Exception($"{LightColorVariableName} uniform not found on shader.");
             }
 
-            Gl.Uniform3(location, 1f, 1f, 1f);
+            Gl.Uniform3(location, LightColorRed, LightColorGreen, LightColorBlue);
             CheckError();
         }
 
@@ -278,7 +299,7 @@ namespace Project
                 throw new Exception($"{LightPositionVariableName} uniform not found on shader.");
             }
 
-            Gl.Uniform3(location, 5f, 2f, 5f);
+            Gl.Uniform3(location, 0f, 2f, 0f);
             CheckError();
         }
 
@@ -308,7 +329,45 @@ namespace Project
             CheckError();
         }
 
-        /*
+        private static unsafe void SetAmbientStrength()
+        {
+            int location = Gl.GetUniformLocation(program, AmbientStrengthVariableName);
+
+            if (location == -1)
+            {
+                throw new Exception($"{AmbientStrengthVariableName} uniform not found on shader.");
+            }
+
+            Gl.Uniform1(location, AmbientStrength);
+            CheckError();
+        }
+
+        private static unsafe void SetDiffuseStrength()
+        {
+            int location = Gl.GetUniformLocation(program, DiffuseStrengthVariableName);
+
+            if (location == -1)
+            {
+                throw new Exception($"{DiffuseStrengthVariableName} uniform not found on shader.");
+            }
+
+            Gl.Uniform1(location, DiffuseStrength);
+            CheckError();
+        }
+
+        private static unsafe void SetSpecularStrength()
+        {
+            int location = Gl.GetUniformLocation(program, SpecularStrengthVariableName);
+
+            if (location == -1)
+            {
+                throw new Exception($"{SpecularStrengthVariableName} uniform not found on shader.");
+            }
+
+            Gl.Uniform1(location, SpecularStrength);
+            CheckError();
+        }
+
         private static unsafe void DrawRevolvingCube()
         {
             // set material uniform to metal
@@ -325,34 +384,16 @@ namespace Project
             Gl.BindVertexArray(glCubeRotating.Vao);
             Gl.DrawElements(GLEnum.Triangles, glCubeRotating.IndexArrayLength, GLEnum.UnsignedInt, null);
             Gl.BindVertexArray(0);
-        }*/
+        }
 
         private static unsafe void DrawPulsingCenterCube()
         {
-            // set material uniform to rubber         
-            float d = 1.0f / (2.0f * (float)Math.Tan(Math.PI / 18));
-            Matrix4X4<float> trans1 = Matrix4X4.CreateTranslation(0f, 0f, d);
-            for (int i = 0; i < 18; i++)
-            {
-                Matrix4X4<float> rotLocY = Matrix4X4.CreateRotationY((float)(Math.PI / 9.0f * i));
-                var modelMatrixForCenterCube = trans1 * rotLocY;
-                SetModelMatrix(modelMatrixForCenterCube);
-                Gl.BindVertexArray(glBarrel1[i].Vao);
-                Gl.DrawElements(GLEnum.Triangles, glBarrel1[i].IndexArrayLength, GLEnum.UnsignedInt, null);
+            // set material uniform to rubber
 
-            }
-            Gl.BindVertexArray(0);
-
-            Matrix4X4<float> trans2 = Matrix4X4.CreateTranslation(0f, 3f, d);
-            for (int i = 0; i < 18; i++)
-            {
-                Matrix4X4<float> rotLocY = Matrix4X4.CreateRotationY((float)(Math.PI / 9.0f * i));
-                var modelMatrixForCenterCube = trans2 * rotLocY;
-                SetModelMatrix(modelMatrixForCenterCube);
-                Gl.BindVertexArray(glBarrel2[i].Vao);
-                Gl.DrawElements(GLEnum.Triangles, glBarrel2[i].IndexArrayLength, GLEnum.UnsignedInt, null);
-
-            }
+            var modelMatrixForCenterCube = Matrix4X4.CreateScale((float)cubeArrangementModel.CenterCubeScale);
+            SetModelMatrix(modelMatrixForCenterCube);
+            Gl.BindVertexArray(glCubeCentered.Vao);
+            Gl.DrawElements(GLEnum.Triangles, glCubeCentered.IndexArrayLength, GLEnum.UnsignedInt, null);
             Gl.BindVertexArray(0);
         }
 
@@ -387,29 +428,38 @@ namespace Project
 
         private static unsafe void SetUpObjects()
         {
+            float[][] faceColors = {
+             new float[] {1.0f, 0.0f, 0.0f, 1.0f },
+             new float[] {0.0f, 1.0f, 0.0f, 1.0f },
+             new float[] {0.0f, 0.0f, 1.0f, 1.0f },
+             new float[] {1.0f, 0.0f, 1.0f, 1.0f },
+             new float[] { 0.0f, 1.0f, 1.0f, 1.0f },
+             new float[] {1.0f, 1.0f, 0.0f, 1.0f } };
 
-            float[] face1Color = new float[] { 1.0f, 0.0f, 0.0f, 1.0f };
-            float[] norm1 = new float[] { 0f, 0f, 1f, 0f, 0f, 1f };
-            Vector3 rotatedNormalPositive = new Vector3(norm1);
-            Vector3 rotatedNormalNegative = new Vector3(norm1);
-            rotatedNormalPositive = Vector3.Transform(rotatedNormalPositive, Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 18));
-            rotatedNormalNegative = Vector3.Transform(rotatedNormalNegative, Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 18));
-            float[] norm2 = new float[] { rotatedNormalPositive.X, rotatedNormalPositive.Y, rotatedNormalPositive.Z,
-                rotatedNormalNegative.X, rotatedNormalNegative.Y, rotatedNormalNegative.Z };
-            for (int i = 0; i < 18; i++)
+            float[][] faceColors2 = new float[6][];
+            for (int i = 0; i < 6; i++)
             {
-                glBarrel1[i] = GlCube.CreateCubeWithFaceColors(Gl, face1Color, norm1);
-                glBarrel2[i] = GlCube.CreateCubeWithFaceColors(Gl, face1Color, norm2);
+                if (i == 1)
+                {
+                    faceColors2[i] = faceColors[SelectedColorIndex];
+                }
+                else
+                {
+                    faceColors2[i] = faceColors[i];
+                }
             }
+
+            glCubeCentered = GlCube.CreateCubeWithFaceColors(Gl, faceColors2[0], faceColors2[1], faceColors2[2], faceColors2[3], faceColors2[4], faceColors2[5]);
+            glCubeRotating = GlCube.CreateCubeWithFaceColors(Gl, faceColors[0], faceColors[1], faceColors[2], faceColors[3], faceColors[4], faceColors[5]);
         }
+
+
+
 
         private static void Window_Closing()
         {
-            for (int i = 0; i < 18; i++)
-            {
-                glBarrel1[i].ReleaseGlCube();
-                glBarrel2[i].ReleaseGlCube();
-            }
+            glCubeCentered.ReleaseGlCube();
+            glCubeRotating.ReleaseGlCube();
         }
 
         private static unsafe void SetProjectionMatrix()

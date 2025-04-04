@@ -4,7 +4,7 @@ namespace Project
 {
     internal class CameraDescriptor
     {
-        private double DistanceToOrigin = 8d;
+        private double DistanceToOrigin = 1;
 
         private double AngleToZYPlane = 0;
 

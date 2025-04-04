@@ -2,7 +2,6 @@
 using Silk.NET.Vulkan;
 using System;
 using System.Collections.Generic;
-using System.IO.IsolatedStorage;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -30,19 +29,13 @@ namespace Project
             this.Gl = gl;
         }
 
-        public static unsafe GlCube CreateCubeWithFaceColors(GL Gl, float[] face1Color, float[] norm)
+        public static unsafe GlCube CreateCubeWithFaceColors(GL Gl, float[] face1Color, float[] face2Color, float[] face3Color, float[] face4Color, float[] face5Color, float[] face6Color)
         {
             uint vao = Gl.GenVertexArray();
             Gl.BindVertexArray(vao);
 
             // counter clockwise is front facing
             float[] vertexArray = new float[] {
-                -0.5f, 1.0f, 0.0f, norm[3], norm[4], norm[5],
-                -0.5f, -1.0f, 0.0f, norm[3], norm[4], norm[5],
-                0.5f, -1.0f, 0.0f, norm[0], norm[1], norm[2],
-                0.5f, 1.0f, 0.0f, norm[0], norm[1], norm[2],
-
-                /*
                 // top face
                 -0.5f, 0.5f, 0.5f, 0f, 1f, 0f,
                 0.5f, 0.5f, 0.5f, 0f, 1f, 0f,
@@ -78,7 +71,6 @@ namespace Project
                 0.5f, 0.5f, -0.5f,1f, 0f, 0f,
                 0.5f, -0.5f, -0.5f,1f, 0f, 0f,
                 0.5f, -0.5f, 0.5f,1f, 0f, 0f
-                */
             };
 
             List<float> colorsList = new List<float>();
@@ -87,7 +79,6 @@ namespace Project
             colorsList.AddRange(face1Color);
             colorsList.AddRange(face1Color);
 
-            /*
             colorsList.AddRange(face2Color);
             colorsList.AddRange(face2Color);
             colorsList.AddRange(face2Color);
@@ -112,7 +103,6 @@ namespace Project
             colorsList.AddRange(face6Color);
             colorsList.AddRange(face6Color);
             colorsList.AddRange(face6Color);
-            */
 
 
             float[] colorArray = colorsList.ToArray();
@@ -121,7 +111,6 @@ namespace Project
                 0, 1, 2,
                 0, 2, 3,
 
-                /*
                 4, 5, 6,
                 4, 6, 7,
 
@@ -136,7 +125,6 @@ namespace Project
 
                 20, 22, 21,
                 20, 23, 22
-                */
             };
 
             uint offsetPos = 0;

@@ -14,9 +14,6 @@ namespace Project
 
         private const double AngleChangeStepSize = Math.PI / 180 * 5;
 
-        /// <summary>
-        /// Gets the position of the camera.
-        /// </summary>
         public Vector3D<float> Position
         {
             get
@@ -81,8 +78,8 @@ namespace Project
 
         private static Vector3D<float> GetPointFromAngles(double distanceToOrigin, double angleToMinZYPlane, double angleToMinZXPlane)
         {
-            var x = distanceToOrigin * Math.Cos(angleToMinZXPlane) * Math.Sin(angleToMinZYPlane);
-            var z = distanceToOrigin * Math.Cos(angleToMinZXPlane) * Math.Cos(angleToMinZYPlane);
+            var x = distanceToOrigin * Math.Sin(angleToMinZYPlane) * Math.Cos(angleToMinZXPlane);
+            var z = distanceToOrigin * Math.Cos(angleToMinZYPlane) * Math.Cos(angleToMinZXPlane);
             var y = distanceToOrigin * Math.Sin(angleToMinZXPlane);
 
             return new Vector3D<float>((float)x, (float)y, (float)z);

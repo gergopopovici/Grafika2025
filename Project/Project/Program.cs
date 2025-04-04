@@ -1,77 +1,116 @@
-﻿using Project;
-using Silk.NET.Input;
+﻿using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
-using System;
+using System.Numerics;
+using ImGuiNET;
+using Silk.NET.OpenGL.Extensions.ImGui;
 
 namespace Project
 {
     internal static class Program
     {
-        // Camera setup to control viewpoint
+        private static ImGuiController controller;
+        private static int rollDirecttion = 1;
         private static CameraDescriptor cameraDescriptor = new();
 
-        //private static CubeArrangementModel cubeArrangementModel = new();
+        private static CubeArrangementModel cubeArrangementModel = new();
 
-        // Main window instance
         private static IWindow window;
 
-        // OpenGL context
         private static GL Gl;
 
-        private static int rollDirecttion = 1;  // Direction of cube rotation (1 or -1)
-
-        private static CubeArrangementModel cubeArrangementModel = new();  // Model for cube animation state
-
-        // Array of Vertex Array Objects - one for each of the 27 cubes (3x3x3)
-        private static uint[] vao = new uint[27];
-        private static uint vertices;  // Buffer for vertex positions
-        private static uint colors;    // Buffer for color data
-        private static uint indices;   // Buffer for indices/element data
-        private static uint indexLength;  // Number of indices to draw
+        private static GlCube[] cubeComponents = new GlCube[27];
+        private static uint vertices;
+        private static uint colors;
+        private static uint indices;
+        private static uint indexLength;
 
         private static uint program;
 
+
         private const string ModelMatrixVariableName = "uModel";
+        private const string NormalMatrixVariableName = "uNormal";
         private const string ViewMatrixVariableName = "uView";
         private const string ProjectionMatrixVariableName = "uProjection";
+        private const string LightColorVariableName = "lightColor";
+        private const string LightPositionVariableName = "lightPos";
+        private const string ViewPosVariableName = "viewPos";
+        private static float LightColorRed = 1.0f;
+        private static float LightColorGreen = 1.0f;
+        private static float LightColorBlue = 1.0f;
+        private static float LightPositionX = 0.0f;
+        private static float LightPositionY = 0.0f;
+        private static float LightPositionZ = 2.0f;
+        private static Vector3 LightPosition = new Vector3(LightPositionX, LightPositionY, LightPositionZ);
 
         private static readonly string VertexShaderSource = @"
         #version 330 core
         layout (location = 0) in vec3 vPos;
 		layout (location = 1) in vec4 vCol;
+        layout (location = 2) in vec3 vNorm;
 
-        uniform mat4 uModel;      // Model transformation
-        uniform mat4 uView;       // View/camera transformation
-        uniform mat4 uProjection; // Projection transformation
+        uniform mat4 uModel;
+        uniform mat3 uNormal;
+        uniform mat4 uView;
+        uniform mat4 uProjection;
 
 		out vec4 outCol;
+        out vec3 outNormal;
+        out vec3 outWorldPosition;
         
         void main()
         {
-			outCol = vCol;  // Pass color to fragment shader
-            gl_Position = uProjection*uView*uModel*vec4(vPos.x, vPos.y, vPos.z, 1.0);  // Transform vertex
+			outCol = vCol;
+            gl_Position = uProjection*uView*uModel*vec4(vPos.x, vPos.y, vPos.z, 1.0);
+            outNormal = uNormal*vNorm;
+            outWorldPosition = vec3(uModel*vec4(vPos.x, vPos.y, vPos.z, 1.0));
         }
         ";
 
+
         private static readonly string FragmentShaderSource = @"
         #version 330 core
+        
+        uniform vec3 lightColor;
+        uniform vec3 lightPos;
+        uniform vec3 viewPos;
+
         out vec4 FragColor;
-		
-		in vec4 outCol;  // Color received from vertex shader
+
+		in vec4 outCol;
+        in vec3 outNormal;
+        in vec3 outWorldPosition;
 
         void main()
         {
-            FragColor = outCol;  // Use the color from vertex shader
+            float shininess = 50;
+            float ambientStrength = 0.2;
+            vec3 ambient = ambientStrength * lightColor;
+
+            float diffuseStrength = 0.3;
+            vec3 norm = normalize(outNormal);
+            vec3 lightDir = normalize(lightPos - outWorldPosition);
+            float diff = max(dot(norm, lightDir), 0.0);
+            vec3 diffuse = diff * lightColor * diffuseStrength;
+
+            float specularStrength = 0.5;
+            vec3 viewDir = normalize(viewPos - outWorldPosition);
+            vec3 reflectDir = reflect(-lightDir, norm);
+            float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess) / max(dot(norm,viewDir), -dot(norm,lightDir));
+            vec3 specular = specularStrength * spec * lightColor;  
+
+            vec3 result = (ambient + diffuse + specular) * outCol.xyz;
+            FragColor = vec4(result, outCol.w);
         }
         ";
 
         static void Main(string[] args)
         {
             WindowOptions windowOptions = WindowOptions.Default;
-            windowOptions.Title = "lab2_2";
-            windowOptions.Size = new Vector2D<int>(500, 500);
+            windowOptions.Title = "lab3_3";
+            windowOptions.Size = new Vector2D<int>(1500, 1500);
+            windowOptions.PreferredDepthBufferBits = 24;
 
             window = Window.Create(windowOptions);
 
@@ -83,69 +122,48 @@ namespace Project
             window.Run();
         }
 
-        // Helper function to check for OpenGL errors
-        public static void CheckError(String func_name)
-        {
-            var error = (ErrorCode)Gl.GetError();
-            if (error != ErrorCode.NoError)
-                throw new Exception("Error(" + func_name + ") GL.GetError() returned " + error.ToString());
-        }
 
-        // Called when window is created - initialize OpenGL resources
+
         private static void Window_Load()
         {
             //Console.WriteLine("Load");
-
-            // Set up camera position and angles
-            cameraDescriptor.SetDistance(4.56f);
-            cameraDescriptor.SetZXAngle((float)Math.PI / 180 * 30);  // 30 degrees in radians
-            cameraDescriptor.SetZYAngle((float)Math.PI / 180 * 30);  // 30 degrees in radians
-
-            // Get OpenGL context
-            Gl = window.CreateOpenGL();
-
-            // Set background color to white
-            Gl.ClearColor(System.Drawing.Color.White);
-
-            // Create all the cubes' geometry
-            SetUpModelObjects();
-
-            // Compile and link shaders
-            CreateProgram();
-
-            // Enable back-face culling (don't render faces pointing away from camera)
-            Gl.Enable(EnableCap.CullFace);
-
-            // Enable depth testing (closer objects obscure farther ones)
-            Gl.Enable(EnableCap.DepthTest);
-            Gl.DepthFunc(DepthFunction.Lequal);
 
             IInputContext inputContext = window.CreateInput();
             foreach (var keyboard in inputContext.Keyboards)
             {
                 keyboard.KeyDown += Keyboard_KeyDown;
             }
+
+            Gl = window.CreateOpenGL();
+
+            controller = new ImGuiController(Gl, window, inputContext);
+
+            Gl.ClearColor(System.Drawing.Color.White);
+
+            SetUpObjects();
+
+            CreateProgram();
+
+            Gl.Enable(EnableCap.CullFace);
+
+            Gl.Enable(EnableCap.DepthTest);
+            Gl.DepthFunc(DepthFunction.Lequal);
         }
 
-        // Compile and link shader program
         private static void CreateProgram()
         {
-            // Create shader objects
             uint vshader = Gl.CreateShader(ShaderType.VertexShader);
             uint fshader = Gl.CreateShader(ShaderType.FragmentShader);
 
-            // Set vertex shader source and compile
             Gl.ShaderSource(vshader, VertexShaderSource);
             Gl.CompileShader(vshader);
             Gl.GetShader(vshader, ShaderParameterName.CompileStatus, out int vStatus);
             if (vStatus != (int)GLEnum.True)
                 throw new Exception("Vertex shader failed to compile: " + Gl.GetShaderInfoLog(vshader));
 
-            // Set fragment shader source and compile
             Gl.ShaderSource(fshader, FragmentShaderSource);
             Gl.CompileShader(fshader);
 
-            // Create program, attach shaders, and link
             program = Gl.CreateProgram();
             Gl.AttachShader(program, vshader);
             Gl.AttachShader(program, fshader);
@@ -155,8 +173,6 @@ namespace Project
             {
                 Console.WriteLine($"Error linking shader {Gl.GetProgramInfoLog(program)}");
             }
-
-            // Clean up shader objects after linking
             Gl.DetachShader(program, vshader);
             Gl.DetachShader(program, fshader);
             Gl.DeleteShader(vshader);
@@ -170,6 +186,7 @@ namespace Project
                 case Key.Left:
                     cameraDescriptor.DecreaseZYAngle();
                     break;
+                    ;
                 case Key.Right:
                     cameraDescriptor.IncreaseZYAngle();
                     break;
@@ -198,372 +215,288 @@ namespace Project
             }
         }
 
-        // Called each frame before rendering - for updates that don't require OpenGL
+
         private static void Window_Update(double deltaTime)
         {
             //Console.WriteLine($"Update after {deltaTime} [s].");
-            // This method runs in a separate thread
-            // Don't make any OpenGL calls here - they're not thread-safe
+            // multithreaded
+            // make sure it is threadsafe
+            // NO GL calls
             cubeArrangementModel.AdvanceTime(deltaTime, rollDirecttion);
+            controller.Update((float)deltaTime);
         }
 
-        // Called each frame to render the scene
         private static unsafe void Window_Render(double deltaTime)
         {
             //Console.WriteLine($"Render after {deltaTime} [s].");
 
-            // Clear the color and depth buffers
+            // GL here
             Gl.Clear(ClearBufferMask.ColorBufferBit);
             Gl.Clear(ClearBufferMask.DepthBufferBit);
 
-            // Use our shader program for rendering
+
             Gl.UseProgram(program);
 
-            // Set camera (view) and projection matrices in the shader
-            SetCameraMatrix();
+            SetViewMatrix();
             SetProjectionMatrix();
 
-            // Render each of the 27 cubes in the 3x3x3 arrangement
-            for (int i = 0; i < 3; i++)       // Y axis (up/down)
+            SetLightColor();
+            SetLightPosition();
+            SetViewerPosition();
+
+            DrawCubeComponents();
+
+            ImGuiNET.ImGui.Begin("Lighting properties",
+                ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar);
+            ImGuiNET.ImGui.SliderFloat("Light Color Red", ref LightColorRed, 0.0f, 1.0f);
+            ImGuiNET.ImGui.SliderFloat("Light Color Green", ref LightColorGreen, 0.0f, 1.0f);
+            ImGuiNET.ImGui.SliderFloat("Light Color Blue", ref LightColorBlue, 0.0f, 1.0f);
+            ImGuiNET.ImGui.InputFloat3("Light Origin Cooridinates", ref LightPosition);
+            //ImGuiNET.ImGui.Button("Rotate Top Left");
+            //ImGuiNET.ImGui.Button("Rotate Top Right");
+            if (ImGui.Button("Rotate Top Left"))
             {
-                for (int j = 0; j < 3; j++)   // Z axis (front/back)
-                {
-                    for (int k = 0; k < 3; k++)  // X axis (left/right)
-                    {
-                        Matrix4X4<float> diamondScale = Matrix4X4.CreateScale(1.0f);
-                        Matrix4X4<float> trans = Matrix4X4.CreateTranslation(
-                            (k - 1) * 1.05f,  // X position (-1.05, 0, or 1.05)
-                            (i - 1) * 1.05f,  // Y position (-1.05, 0, or 1.05)
-                            (j - 1) * 1.05f   // Z position (-1.05, 0, or 1.05)
-                        );
-
-                        // Add special rotation for top layer cubes (i == 2)
-                        if (i == 2)
-                        {
-                            Matrix4X4<float> rotx = Matrix4X4.CreateRotationX((float)Math.PI / 4f);
-                            Matrix4X4<float> rotz = Matrix4X4.CreateRotationZ((float)Math.PI / 4f);
-                            Matrix4X4<float> rotGlobY = Matrix4X4.CreateRotationY((float)cubeArrangementModel.DiamondCubeAngleRevolutionOnGlobalY);
-                            Matrix4X4<float> rotLocY = Matrix4X4.CreateRotationY((float)cubeArrangementModel.DiamondCubeAngleOwnRevolution);
-                            Matrix4X4<float> modelMatrix = diamondScale * trans * rotLocY;
-                            SetModelMatrix(modelMatrix);
-                        }
-                        else
-                        {
-                            Matrix4X4<float> modelMatrix = diamondScale * trans;
-                            SetModelMatrix(modelMatrix);
-                        }
-
-                        Gl.BindVertexArray(vao[i * 9 + j * 3 + k]);
-                        Gl.DrawElements(GLEnum.Triangles, indexLength, GLEnum.UnsignedInt, null);
-                    }
-                }
+                cubeArrangementModel.AnimationEnabeld = true;
+                cubeArrangementModel.OldDirection = rollDirecttion;
+                rollDirecttion = -1;
             }
 
-            // Unbind VAO
-            Gl.BindVertexArray(0);
+            if (ImGui.Button("Rotate Top Right"))
+            {
+                cubeArrangementModel.AnimationEnabeld = true;
+                cubeArrangementModel.OldDirection = rollDirecttion;
+                rollDirecttion = 1;
+            }
+
+            ImGuiNET.ImGui.End();
+            controller.Render();
+
         }
 
-        // Set the model matrix uniform in the shader
+        private static unsafe void SetLightColor()
+        {
+            int location = Gl.GetUniformLocation(program, LightColorVariableName);
+
+            if (location == -1)
+            {
+                throw new Exception($"{LightColorVariableName} uniform not found on shader.");
+            }
+
+            Gl.Uniform3(location, LightColorRed, LightColorGreen, LightColorBlue);
+            CheckError();
+        }
+
+        private static unsafe void SetLightPosition()
+        {
+            int location = Gl.GetUniformLocation(program, LightPositionVariableName);
+
+            if (location == -1)
+            {
+                throw new Exception($"{LightPositionVariableName} uniform not found on shader.");
+            }
+
+            Gl.Uniform3(location, LightPosition.X, LightPosition.Y, LightPosition.Z);
+            CheckError();
+        }
+
+        private static unsafe void SetViewerPosition()
+        {
+            int location = Gl.GetUniformLocation(program, ViewPosVariableName);
+
+            if (location == -1)
+            {
+                throw new Exception($"{ViewPosVariableName} uniform not found on shader.");
+            }
+
+            Gl.Uniform3(location, cameraDescriptor.Position.X, cameraDescriptor.Position.Y, cameraDescriptor.Position.Z);
+            CheckError();
+        }
+
         private static unsafe void SetModelMatrix(Matrix4X4<float> modelMatrix)
         {
-            // Get location of model matrix uniform
             int location = Gl.GetUniformLocation(program, ModelMatrixVariableName);
             if (location == -1)
             {
                 throw new Exception($"{ModelMatrixVariableName} uniform not found on shader.");
             }
 
-            // Upload matrix data to shader
             Gl.UniformMatrix4(location, 1, false, (float*)&modelMatrix);
-            CheckError("SetModelMatrix");
+            CheckError();
+
+            var modelMatrixWithoutTranslation = new Matrix4X4<float>(modelMatrix.Row1, modelMatrix.Row2, modelMatrix.Row3, modelMatrix.Row4);
+            modelMatrixWithoutTranslation.M41 = 0;
+            modelMatrixWithoutTranslation.M42 = 0;
+            modelMatrixWithoutTranslation.M43 = 0;
+            modelMatrixWithoutTranslation.M44 = 1;
+
+            Matrix4X4<float> modelInvers;
+            Matrix4X4.Invert<float>(modelMatrixWithoutTranslation, out modelInvers);
+            Matrix3X3<float> normalMatrix = new Matrix3X3<float>(Matrix4X4.Transpose(modelInvers));
+            location = Gl.GetUniformLocation(program, NormalMatrixVariableName);
+            if (location == -1)
+            {
+                throw new Exception($"{NormalMatrixVariableName} uniform not found on shader.");
+            }
+            Gl.UniformMatrix3(location, 1, false, (float*)&normalMatrix);
+            CheckError();
         }
 
-        // Create all vertex, color, and index buffers for the cubes
-        private static unsafe void SetUpModelObjects()
+        private static unsafe void DrawCubeComponents()
         {
-            // Define cube vertices (8 corners, repeated for each face to support different colors per face)
-            // counter clockwise winding is front facing
-            float[] vertexArray = new float[] {
-                // Top face (y = 0.5)
-                -0.5f, 0.5f, 0.5f,    // top-front-left
-                0.5f, 0.5f, 0.5f,     // top-front-right
-                0.5f, 0.5f, -0.5f,    // top-back-right
-                -0.5f, 0.5f, -0.5f,   // top-back-left
-
-                // Front face (z = 0.5)
-                -0.5f, 0.5f, 0.5f,    // top-front-left
-                -0.5f, -0.5f, 0.5f,   // bottom-front-left
-                0.5f, -0.5f, 0.5f,    // bottom-front-right
-                0.5f, 0.5f, 0.5f,     // top-front-right
-
-                // Left face (x = -0.5)
-                -0.5f, 0.5f, 0.5f,    // top-front-left
-                -0.5f, 0.5f, -0.5f,   // top-back-left
-                -0.5f, -0.5f, -0.5f,  // bottom-back-left
-                -0.5f, -0.5f, 0.5f,   // bottom-front-left
-
-                // Bottom face (y = -0.5)
-                -0.5f, -0.5f, 0.5f,   // bottom-front-left
-                0.5f, -0.5f, 0.5f,    // bottom-front-right
-                0.5f, -0.5f, -0.5f,   // bottom-back-right
-                -0.5f, -0.5f, -0.5f,  // bottom-back-left
-
-                // Back face (z = -0.5)
-                0.5f, 0.5f, -0.5f,    // top-back-right
-                -0.5f, 0.5f, -0.5f,   // top-back-left
-                -0.5f, -0.5f, -0.5f,  // bottom-back-left
-                0.5f, -0.5f, -0.5f,   // bottom-back-right
-
-                // Right face (x = 0.5)
-                0.5f, 0.5f, 0.5f,     // top-front-right
-                0.5f, 0.5f, -0.5f,    // top-back-right
-                0.5f, -0.5f, -0.5f,   // bottom-back-right
-                0.5f, -0.5f, 0.5f,    // bottom-front-right
-            };
-
-            // Create color arrays for each of the 27 cubes
-            float[][] colorArray = new float[27][];
-            for (int i = 0; i < 27; i++)
-            {
-                colorArray[i] = new float[96];  // 24 vertices * 4 color components (RGBA)
-            }
-
-            // Set colors for each cube face
-            // i = Y position (0-2)
-            // j = Z position (0-2)
-            // k = X position (0-2)
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 3; ++i)
             {
                 for (int j = 0; j < 3; ++j)
                 {
                     for (int k = 0; k < 3; ++k)
                     {
-                        // For each vertex (24 vertices * 4 color components)
-                        for (int l = 0; l < 96; l += 4)
+                        Matrix4X4<float> diamondScale = Matrix4X4.CreateScale(1.0f);
+                        Matrix4X4<float> trans = Matrix4X4.CreateTranslation((k - 1) * 1.05f, (i - 1) * 1.05f, (j - 1) * 1.05f);
+                        Matrix4X4<float> modelMatrix;
+                        if (i == 2)
                         {
-                            // Set alpha to 1.0 for all vertices
-                            colorArray[i * 9 + j * 3 + k][l + 3] = 1.0f;
-
-                            // Top face (red if on top layer, black otherwise)
-                            if (l < 16)
-                            {
-                                if (i > 1)  // Top layer
-                                {
-                                    colorArray[i * 9 + j * 3 + k][l] = 1.0f;     // R
-                                    colorArray[i * 9 + j * 3 + k][l + 1] = 0.0f; // G
-                                    colorArray[i * 9 + j * 3 + k][l + 2] = 0.0f; // B
-                                }
-                                else  // Not on top layer
-                                {
-                                    colorArray[i * 9 + j * 3 + k][l] = 0.0f;     // R
-                                    colorArray[i * 9 + j * 3 + k][l + 1] = 0.0f; // G
-                                    colorArray[i * 9 + j * 3 + k][l + 2] = 0.0f; // B
-                                }
-                            }
-                            // Front face (green if on front layer, black otherwise)
-                            else if (l < 32)
-                            {
-                                if (j > 1)  // Front layer
-                                {
-                                    colorArray[i * 9 + j * 3 + k][l] = 0.0f;     // R
-                                    colorArray[i * 9 + j * 3 + k][l + 1] = 1.0f; // G
-                                    colorArray[i * 9 + j * 3 + k][l + 2] = 0.0f; // B
-                                }
-                                else  // Not on front layer
-                                {
-                                    colorArray[i * 9 + j * 3 + k][l] = 0.0f;     // R
-                                    colorArray[i * 9 + j * 3 + k][l + 1] = 0.0f; // G
-                                    colorArray[i * 9 + j * 3 + k][l + 2] = 0.0f; // B
-                                }
-                            }
-                            // Left face (blue if on left layer, black otherwise)
-                            else if (l < 48)
-                            {
-                                if (k < 1)  // Left layer
-                                {
-                                    colorArray[i * 9 + j * 3 + k][l] = 0.0f;     // R
-                                    colorArray[i * 9 + j * 3 + k][l + 1] = 0.0f; // G
-                                    colorArray[i * 9 + j * 3 + k][l + 2] = 1.0f; // B
-                                }
-                                else  // Not on left layer
-                                {
-                                    colorArray[i * 9 + j * 3 + k][l] = 0.0f;     // R
-                                    colorArray[i * 9 + j * 3 + k][l + 1] = 0.0f; // G
-                                    colorArray[i * 9 + j * 3 + k][l + 2] = 0.0f; // B
-                                }
-                            }
-                            // Bottom face (magenta if on bottom layer, black otherwise)
-                            else if (l < 64)
-                            {
-                                if (i < 1)  // Bottom layer
-                                {
-                                    colorArray[i * 9 + j * 3 + k][l] = 1.0f;     // R
-                                    colorArray[i * 9 + j * 3 + k][l + 1] = 0.0f; // G
-                                    colorArray[i * 9 + j * 3 + k][l + 2] = 1.0f; // B
-                                }
-                                else  // Not on bottom layer
-                                {
-                                    colorArray[i * 9 + j * 3 + k][l] = 0.0f;     // R
-                                    colorArray[i * 9 + j * 3 + k][l + 1] = 0.0f; // G
-                                    colorArray[i * 9 + j * 3 + k][l + 2] = 0.0f; // B
-                                }
-                            }
-                            // Back face (cyan if on back layer, black otherwise)
-                            else if (l < 80)
-                            {
-                                if (j < 1)  // Back layer
-                                {
-                                    colorArray[i * 9 + j * 3 + k][l] = 0.0f;     // R
-                                    colorArray[i * 9 + j * 3 + k][l + 1] = 1.0f; // G
-                                    colorArray[i * 9 + j * 3 + k][l + 2] = 1.0f; // B
-                                }
-                                else  // Not on back layer
-                                {
-                                    colorArray[i * 9 + j * 3 + k][l] = 0.0f;     // R
-                                    colorArray[i * 9 + j * 3 + k][l + 1] = 0.0f; // G
-                                    colorArray[i * 9 + j * 3 + k][l + 2] = 0.0f; // B
-                                }
-                            }
-                            // Right face (yellow if on right layer, black otherwise)
-                            else if (l < 96)
-                            {
-                                if (k > 1)  // Right layer
-                                {
-                                    colorArray[i * 9 + j * 3 + k][l] = 1.0f;     // R
-                                    colorArray[i * 9 + j * 3 + k][l + 1] = 1.0f; // G
-                                    colorArray[i * 9 + j * 3 + k][l + 2] = 0.0f; // B
-                                }
-                                else  // Not on right layer
-                                {
-                                    colorArray[i * 9 + j * 3 + k][l] = 0.0f;     // R
-                                    colorArray[i * 9 + j * 3 + k][l + 1] = 0.0f; // G
-                                    colorArray[i * 9 + j * 3 + k][l + 2] = 0.0f; // B
-                                }
-                            }
+                            Matrix4X4<float> rotx = Matrix4X4.CreateRotationX((float)Math.PI / 4f);
+                            Matrix4X4<float> rotz = Matrix4X4.CreateRotationZ((float)Math.PI / 4f);
+                            Matrix4X4<float> rotGlobY = Matrix4X4.CreateRotationY((float)cubeArrangementModel.DiamondCubeAngleRevolutionOnGlobalY);
+                            Matrix4X4<float> rotLocY = Matrix4X4.CreateRotationY((float)cubeArrangementModel.DiamondCubeAngleOwnRevolution);
+                            modelMatrix = diamondScale * trans * rotLocY;
+                            SetModelMatrix(modelMatrix);
                         }
+                        else
+                        {
+                            modelMatrix = diamondScale * trans;
+                            SetModelMatrix(modelMatrix);
+                        }
+
+                        SetModelMatrix(modelMatrix);
+                        Gl.BindVertexArray(cubeComponents[i * 9 + j * 3 + k].Vao);
+                        Gl.DrawElements(GLEnum.Triangles, cubeComponents[i * 9 + j * 3 + k].IndexArrayLength, GLEnum.UnsignedInt, null);
+                        Gl.BindVertexArray(0);
                     }
                 }
             }
-
-            // Define indices for the triangles of each face (6 faces * 2 triangles * 3 vertices)
-            uint[] indexArray = new uint[] {
-                // Top face (2 triangles)
-                0, 1, 2,    // First triangle
-                0, 2, 3,    // Second triangle
-
-                // Front face (2 triangles)
-                4, 5, 6,
-                4, 6, 7,
-
-                // Left face (2 triangles)
-                8, 9, 10,
-                10, 11, 8,
-
-                // Bottom face (2 triangles)
-                12, 14, 13,
-                12, 15, 14,
-
-                // Back face (2 triangles)
-                17, 16, 19,
-                17, 19, 18,
-
-                // Right face (2 triangles)
-                20, 22, 21,
-                20, 23, 22
-            };
-
-            // Create and set up VAOs and buffers for each of the 27 cubes
-            for (int i = 0; i < 27; i++)
-            {
-                // Create and bind VAO
-                vao[i] = Gl.GenVertexArray();
-                Gl.BindVertexArray(vao[i]);
-
-                // Create, bind, and fill vertex buffer
-                vertices = Gl.GenBuffer();
-                Gl.BindBuffer(GLEnum.ArrayBuffer, vertices);
-                Gl.BufferData(GLEnum.ArrayBuffer, (ReadOnlySpan<float>)vertexArray.AsSpan(), GLEnum.StaticDraw);
-                Gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 0, null);
-                Gl.EnableVertexAttribArray(0);
-
-                // Create, bind, and fill color buffer
-                colors = Gl.GenBuffer();
-                Gl.BindBuffer(GLEnum.ArrayBuffer, colors);
-                Gl.BufferData(GLEnum.ArrayBuffer, (ReadOnlySpan<float>)colorArray[i].AsSpan(), GLEnum.StaticDraw);
-                Gl.VertexAttribPointer(1, 4, VertexAttribPointerType.Float, false, 0, null);
-                Gl.EnableVertexAttribArray(1);
-
-                // Create, bind, and fill index buffer
-                indices = Gl.GenBuffer();
-                Gl.BindBuffer(GLEnum.ElementArrayBuffer, indices);
-                Gl.BufferData(GLEnum.ElementArrayBuffer, (ReadOnlySpan<uint>)indexArray.AsSpan(), GLEnum.StaticDraw);
-            }
-
-            // Unbind VAO
-            Gl.BindVertexArray(0);
-
-            // Store the number of indices for DrawElements calls
-            indexLength = (uint)indexArray.Length;
         }
 
-        // Clean up OpenGL resources when window is closing
-        private static void Window_Closing()
+        private static unsafe void SetViewMatrix()
         {
-            // Always unbind the vertex buffer first to avoid partial rendering
-            Gl.DeleteBuffer(vertices);
-            Gl.DeleteBuffer(colors);
-            Gl.DeleteBuffer(indices);
-
-            // Delete all VAOs
-            for (int i = 0; i < 27; i++)
-            {
-                Gl.DeleteVertexArray(vao[i]);
-            }
-        }
-
-        // Set projection matrix uniform in shader
-        private static unsafe void SetProjectionMatrix()
-        {
-            // Create perspective projection matrix
-            var projMatrix = Matrix4X4.CreatePerspectiveFieldOfView<float>(
-                (float)(Math.PI / 2),  // 90 degree field of view
-                1024f / 768f,          // Aspect ratio
-                0.1f,                  // Near clip plane
-                100                    // Far clip plane
-            );
-
-            // Get location of projection matrix uniform
-            int location = Gl.GetUniformLocation(program, ProjectionMatrixVariableName);
-            if (location == -1)
-            {
-                throw new Exception($"{ProjectionMatrixVariableName} uniform not found on shader.");
-            }
-
-            // Upload matrix data to shader
-            Gl.UniformMatrix4(location, 1, false, (float*)&projMatrix);
-            CheckError("SetProjectionMatrix");
-        }
-
-        // Set view (camera) matrix uniform in shader
-        private static unsafe void SetCameraMatrix()
-        {
-            // Create view matrix from camera descriptor
-            var viewMatrix = Matrix4X4.CreateLookAt(
-                cameraDescriptor.Position,   // Camera position
-                cameraDescriptor.Target,     // Look-at target
-                cameraDescriptor.UpVector    // Up vector
-            );
-
-            // Get location of view matrix uniform
+            var viewMatrix = Matrix4X4.CreateLookAt(cameraDescriptor.Position, cameraDescriptor.Target, cameraDescriptor.UpVector);
             int location = Gl.GetUniformLocation(program, ViewMatrixVariableName);
+
             if (location == -1)
             {
                 throw new Exception($"{ViewMatrixVariableName} uniform not found on shader.");
             }
 
-            // Upload matrix data to shader
             Gl.UniformMatrix4(location, 1, false, (float*)&viewMatrix);
-            CheckError("SetCameraMatrix");
+            CheckError();
+        }
+
+        private static unsafe void SetUpObjects()
+        {
+
+            float[][] faceColorsContainer =
+            {
+                new float[] { 1.0f, 0.0f, 0.0f, 1.0f },
+                new float[] { 0.0f, 1.0f, 0.0f, 1.0f },
+                new float[] { 0.0f, 0.0f, 1.0f, 1.0f },
+                new float[] { 1.0f, 0.0f, 1.0f, 1.0f },
+                new float[] { 0.0f, 1.0f, 1.0f, 1.0f },
+                new float[] { 1.0f, 1.0f, 0.0f, 1.0f },
+                new float[] { 0.0f, 0.0f, 0.0f, 1.0f }
+            };
+
+            float[][] faceColors =
+            {
+                new float[4],
+                new float[4],
+                new float[4],
+                new float[4],
+                new float[4],
+                new float[4],
+            };
+
+            for (int i = 0; i < 3; i++)
+            {
+                for (int j = 0; j < 3; j++)
+                {
+                    for (int k = 0; k < 3; k++)
+                    {
+                        for (int colorIndex = 0; colorIndex < 6; colorIndex++)
+                        {
+                            faceColors[colorIndex] = faceColorsContainer[colorIndex];
+                        }
+                        if (i <= 1)
+                        {
+                            faceColors[0] = faceColorsContainer[6];
+                        }
+                        if (i >= 1)
+                        {
+                            faceColors[3] = faceColorsContainer[6];
+                        }
+                        if (j <= 1)
+                        {
+                            faceColors[1] = faceColorsContainer[6];
+                        }
+                        if (j >= 1)
+                        {
+                            faceColors[4] = faceColorsContainer[6];
+                        }
+                        if (k >= 1)
+                        {
+                            faceColors[2] = faceColorsContainer[6];
+                        }
+                        if (k <= 1)
+                        {
+                            faceColors[5] = faceColorsContainer[6];
+                        }
+                        cubeComponents[i * 9 + j * 3 + k] = GlCube.CreateCubeWithFaceColors(Gl, faceColors[0], faceColors[1], faceColors[2], faceColors[3], faceColors[4], faceColors[5]);
+                    }
+                }
+            }
+
+        }
+
+        private static void Window_Closing()
+        {
+            for (int i = 0; i < 27; i++)
+            {
+                cubeComponents[i].ReleaseGlCube();
+            }
+        }
+
+        private static unsafe void SetProjectionMatrix()
+        {
+            var viewMatrix = Matrix4X4.CreatePerspectiveFieldOfView<float>((float)(Math.PI / 2), 1024f / 768f, 0.1f, 100);
+            int location = Gl.GetUniformLocation(program, ProjectionMatrixVariableName);
+
+            if (location == -1)
+            {
+                throw new Exception($"{ProjectionMatrixVariableName} uniform not found on shader.");
+            }
+
+            Gl.UniformMatrix4(location, 1, false, (float*)&viewMatrix);
+            CheckError();
+        }
+
+        private static unsafe void SetCameraMatrix()
+        {
+            var viewMatrix = Matrix4X4.CreateLookAt(cameraDescriptor.Position, cameraDescriptor.Target, cameraDescriptor.UpVector);
+
+            int location = Gl.GetUniformLocation(program, ViewMatrixVariableName);
+
+            if (location == -1)
+            {
+                throw new Exception($"{ViewMatrixVariableName} uniform not found on shader.");
+            }
+
+            Gl.UniformMatrix4(location, 1, false, (float*)&viewMatrix);
+            CheckError();
+        }
+
+        public static void CheckError()
+        {
+            var error = (ErrorCode)Gl.GetError();
+            if (error != ErrorCode.NoError)
+                throw new Exception("GL.GetError() returned " + error.ToString());
         }
     }
 }

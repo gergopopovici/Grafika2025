@@ -1,19 +1,22 @@
 ﻿using Silk.NET.Maths;
 
-namespace Project
+namespace Szeminarium1_24_02_17_2
 {
     internal class CameraDescriptor
     {
-        private double DistanceToOrigin = 1;
+        private double DistanceToOrigin = 20;
 
         private double AngleToZYPlane = 0;
 
-        private double AngleToZXPlane = 0;
+        private double AngleToZXPlane = 0.5;
 
         private const double DistanceScaleFactor = 1.1;
 
         private const double AngleChangeStepSize = Math.PI / 180 * 5;
 
+        /// <summary>
+        /// Gets the position of the camera.
+        /// </summary>
         public Vector3D<float> Position
         {
             get
@@ -78,8 +81,8 @@ namespace Project
 
         private static Vector3D<float> GetPointFromAngles(double distanceToOrigin, double angleToMinZYPlane, double angleToMinZXPlane)
         {
-            var x = distanceToOrigin * Math.Sin(angleToMinZYPlane) * Math.Cos(angleToMinZXPlane);
-            var z = distanceToOrigin * Math.Cos(angleToMinZYPlane) * Math.Cos(angleToMinZXPlane);
+            var x = distanceToOrigin * Math.Cos(angleToMinZXPlane) * Math.Sin(angleToMinZYPlane);
+            var z = distanceToOrigin * Math.Cos(angleToMinZXPlane) * Math.Cos(angleToMinZYPlane);
             var y = distanceToOrigin * Math.Sin(angleToMinZXPlane);
 
             return new Vector3D<float>((float)x, (float)y, (float)z);

@@ -8,7 +8,6 @@ namespace pgim2289_project
         public float maxSpeed;              
         public float acceleration;           
         public float speed;                 
-        public float rpm;
         public float steeringAngle;
         public float wheelBase;
         public float Orientation;
@@ -23,7 +22,6 @@ namespace pgim2289_project
         private GlObject carBase;
         public BoundingBox boundingBox;
         Vector3D<float> BoundingBoxDimensions;
-        private readonly bool hasWheels;
 
         public GlObjectForest(GL Gl, string carName)
         {

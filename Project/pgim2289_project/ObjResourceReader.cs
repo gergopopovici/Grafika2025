@@ -43,18 +43,6 @@ namespace pgim2289_project
         private static bool voltTextura = false;
         private static bool voltNormalis = false;
         private static int osszesFaceDrb = 0;
-        private static bool hasFaceNormals;
-        private static void ParseFaceElement(string element, int[] face, int[] faceNormal, int index)
-        {
-            var parts = element.Split('/');
-            face[index] = int.Parse(parts[0]);
-            if (parts.Length == 3)
-            {
-                hasFaceNormals = true;
-                faceNormal[index] = int.Parse(parts[2]);
-            }
-        }
-
         public static unsafe GlObject CreateObjectWithTextureFromResource(GL Gl, string resourceName, string textureName, float[]? defaultColor = null)
         {
             voltNormalis = false;

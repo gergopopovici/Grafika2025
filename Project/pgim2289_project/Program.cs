@@ -414,14 +414,7 @@ namespace pgim2289_project
 
         private static unsafe void SetUpObjects()
         {
-            float[] face1Color = [1f, 0f, 0f, 1.0f];
-            float[] face2Color = [0.0f, 1.0f, 0.0f, 1.0f];
-            float[] face3Color = [0.0f, 0.0f, 1.0f, 1.0f];
-            float[] face4Color = [1.0f, 0.0f, 1.0f, 1.0f];
-            float[] face5Color = [0.0f, 1.0f, 1.0f, 1.0f];
-            float[] face6Color = [1.0f, 1.0f, 0.0f, 1.0f];
 
-            // Player Car
             squirrel = new GlObjectForest(Gl, "squirrel");
             squirrel.SetPosition(new Vector3D<float>(26f, 1.8f, 0f));
             squirrel.SetScale(0.2f);
@@ -432,7 +425,6 @@ namespace pgim2289_project
             squirrel.wheelBase = 2.8f;
             squirrel.SetBoundingBoxDimensions(1.3f, 2.5f, 6.4f);
 
-            // Opponent Car 1
             apple = new GlObjectForest(Gl, "apple");
             apple.SetScale(10.0f);
             apple.SetRotation(90.0f * MathF.PI / 180); // Y-axis rotation
@@ -450,14 +442,6 @@ namespace pgim2289_project
             car2RadiusA = 40.0f;
             car2RadiusB = 170.0f;
             pear.SetBoundingBoxDimensions(2.7f, 1.15f, 0.7f);
-
-            // Terrain
-            float[] tableColor = [
-                System.Drawing.Color.Azure.R / 256f,
-        System.Drawing.Color.Azure.G / 256f,
-        System.Drawing.Color.Azure.B / 256f,
-        1f
-            ];
 
             GlObject glObject = ObjectResourceReader.CreateObjectWithTextureFromResource(Gl, "terrain.RaceTrack.obj", "terrain.RaceTrack.png");
             raceTrack = new GlObject(glObject.Vao, glObject.Vertices, glObject.Colors, glObject.Indices, glObject.IndexArrayLength, Gl, glObject.Texture.Value);

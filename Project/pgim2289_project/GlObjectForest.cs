@@ -5,10 +5,9 @@ namespace pgim2289_project
 {
     internal class GlObjectForest
     {
-        public float maxSpeed;               // max speed of car in m/s
-        public float maxRPM;
-        public float acceleration;           // acceleration of car in m/s^2
-        public float speed;                  // current speed of car
+        public float maxSpeed;              
+        public float acceleration;           
+        public float speed;                 
         public float rpm;
         public float steeringAngle;
         public float wheelBase;

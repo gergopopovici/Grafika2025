@@ -17,9 +17,8 @@ namespace pgim2289_project
         public Matrix4X4<float> Translation;
         public Matrix4X4<float> Rotation;
         public Matrix4X4<float> ModelMatrix;
-        public Matrix4X4<float> WheelsRotation;
         public Vector3D<float> Position;
-        private GlObject carBase;
+        private GlObject objectBase;
         public BoundingBox boundingBox;
         Vector3D<float> BoundingBoxDimensions;
 
@@ -32,9 +31,9 @@ namespace pgim2289_project
             Translation = Matrix4X4.CreateTranslation(0f, 0f, 0f);
             Rotation = Matrix4X4.CreateRotationY(0f);
             ModelMatrix = Scale * Translation * Rotation;
-            carBase = ObjectResourceReader.CreateObjectWithTextureFromResource(Gl, "objects." + carName + ".obj", "objects." + carName + ".png");
+            objectBase = ObjectResourceReader.CreateObjectWithTextureFromResource(Gl, "objects." + carName + ".obj", "objects." + carName + ".png");
             BoundingBoxDimensions = new Vector3D<float>(1f, 1f, 1f);
-            carBase.ModelMatrix = ModelMatrix;
+            objectBase.ModelMatrix = ModelMatrix;
             boundingBox = new BoundingBox(Position, BoundingBoxDimensions);
         }
 
@@ -55,7 +54,7 @@ namespace pgim2289_project
             Position += forwardDirection * speed * deltaTime;
 
             ModelMatrix = Scale * Matrix4X4.CreateRotationY(Orientation) * Matrix4X4.CreateTranslation(Position);
-            carBase.ModelMatrix = ModelMatrix;
+            objectBase.ModelMatrix = ModelMatrix;
             boundingBox.Update(Position, BoundingBoxDimensions);
         }
 
@@ -66,7 +65,7 @@ namespace pgim2289_project
 
         public unsafe void Release()
         {
-            carBase.ReleaseGlObject();
+            objectBase.ReleaseGlObject();
         }
 
         public unsafe void SetPosition(Vector3D<float> position)
@@ -74,7 +73,7 @@ namespace pgim2289_project
             Position = position;
             Translation = Matrix4X4.CreateTranslation(Position);
             ModelMatrix = Scale * Rotation * Translation;
-            carBase.ModelMatrix = ModelMatrix;
+            objectBase.ModelMatrix = ModelMatrix;
             boundingBox.Update(Position, BoundingBoxDimensions);
         }
 
@@ -83,7 +82,7 @@ namespace pgim2289_project
             Orientation = rotation;
             Rotation = Matrix4X4.CreateRotationY(rotation);
             ModelMatrix = Scale * Rotation * Translation;
-            carBase.ModelMatrix = ModelMatrix;
+            objectBase.ModelMatrix = ModelMatrix;
             boundingBox.Update(Position, BoundingBoxDimensions);
         }
 
@@ -92,7 +91,7 @@ namespace pgim2289_project
             Translation = Matrix4X4.CreateTranslation(Position);
             Rotation = Matrix4X4.CreateRotationY(Orientation);
             ModelMatrix = Scale * Rotation * Translation;
-            carBase.ModelMatrix = ModelMatrix;
+            objectBase.ModelMatrix = ModelMatrix;
             boundingBox.Update(Position, BoundingBoxDimensions);
         }
 
@@ -102,14 +101,14 @@ namespace pgim2289_project
             BoundingBoxDimensions *= scaleSize;
             Scale = Matrix4X4.CreateScale(scale);
             ModelMatrix = Scale * Rotation * Translation;
-            carBase.ModelMatrix = ModelMatrix;
+            objectBase.ModelMatrix = ModelMatrix;
             boundingBox.Update(Position, BoundingBoxDimensions);
         }
 
         public unsafe void Render(uint program, string textureUniformVariableName,
             string ModelMatrixVariableName, string NormalMatrixVariableName)
         {
-            carBase.Render(program, textureUniformVariableName, ModelMatrixVariableName, NormalMatrixVariableName);
+            objectBase.Render(program, textureUniformVariableName, ModelMatrixVariableName, NormalMatrixVariableName);
         }
 
         public unsafe void updatePosition(Vector3D<float> positionChange)
@@ -117,7 +116,7 @@ namespace pgim2289_project
             Position += positionChange;
             Translation = Matrix4X4.CreateTranslation(Position);
             ModelMatrix = Scale * Matrix4X4.CreateRotationY(Orientation) * Matrix4X4.CreateTranslation(Position);
-            carBase.ModelMatrix = ModelMatrix;
+            objectBase.ModelMatrix = ModelMatrix;
             boundingBox.Update(Position, BoundingBoxDimensions);
         }
 

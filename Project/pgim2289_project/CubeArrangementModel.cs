@@ -1,4 +1,4 @@
-﻿namespace Szeminarium1_24_02_17_2
+﻿namespace pgim2289_project
 {
     internal class CubeArrangementModel
     {

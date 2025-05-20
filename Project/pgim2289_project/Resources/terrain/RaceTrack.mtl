@@ -1,0 +1,12 @@
+# Blender 3.5.1 MTL File: 'None'
+# www.blender.org
+
+newmtl 10605_Slot_Car_Race_Track_v1_Mat
+Ns 10.000005
+Ka 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.525500 0.525500 0.525500
+Ni 1.500000
+d 1.000000
+illum 1
+map_Kd RaceTrack.png

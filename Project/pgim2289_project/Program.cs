@@ -5,13 +5,15 @@ using Silk.NET.OpenGL;
 using Silk.NET.OpenGL.Extensions.ImGui;
 using Silk.NET.Windowing;
 
-namespace Szeminarium1_24_02_17_2
+namespace pgim2289_project
 {
     internal static class Program
     {
-        private static CameraDescriptor cameraDescriptor = new();
+        private static CameraDescriptor cameraDescriptor1 = new();
+        private static CameraDescriptor cameraDescriptor2 = new();
+        private static CameraDescriptor activeCamera = new();
 
-        private static CubeArrangementModel cubeArrangementModel = new();
+        private static int activeCameraNum = 1;
 
         private static IWindow window;
 
@@ -23,21 +25,24 @@ namespace Szeminarium1_24_02_17_2
 
         private static uint program;
 
-        private static GlObject teapot;
+        private static GlObjectForest squirrel;
+        private static GlObjectForest apple;
+        private static GlObjectForest pear;
+        private static float appleTimer;
+        private static float pearTimer;
+        private static float car1RadiusA;
+        private static float car1RadiusB;
+        private static float car2RadiusA;
+        private static float car2RadiusB;
 
-        private static GlObject table;
+        private static IKeyboard primaryKeyboard;
 
-        private static GlCube glCubeRotating;
+        private static PlayerSquirrelModel playerSquirrelModel = new();
+        private static GlObject raceTrack;
 
         private static GlCube skyBox;
 
-        private static GlObject glSphere;
-
-        private static GlObject glPlate;
-
         private static float Shininess = 50;
-
-        private static bool DrawWireFrameOnly = false;
 
         private const string ModelMatrixVariableName = "uModel";
         private const string NormalMatrixVariableName = "uNormal";
@@ -54,8 +59,8 @@ namespace Szeminarium1_24_02_17_2
         static void Main(string[] args)
         {
             WindowOptions windowOptions = WindowOptions.Default;
-            windowOptions.Title = "2 szeminárium";
-            windowOptions.Size = new Vector2D<int>(1000, 1000);
+            windowOptions.Title = "pgim2289_project";
+            windowOptions.Size = new Vector2D<int>(1920, 1280);
 
             // on some systems there is no depth buffer by default, so we need to make sure one is created
             windowOptions.PreferredDepthBufferBits = 24;
@@ -75,10 +80,16 @@ namespace Szeminarium1_24_02_17_2
             //Console.WriteLine("Load");
 
             // set up input handling
+
             inputContext = window.CreateInput();
             foreach (var keyboard in inputContext.Keyboards)
             {
-                keyboard.KeyDown += Keyboard_KeyDown;
+                primaryKeyboard = keyboard;
+            }
+
+            if (primaryKeyboard != null)
+            {
+                primaryKeyboard.KeyDown += Keyboard_KeyDown;
             }
 
             Gl = window.CreateOpenGL();
@@ -92,14 +103,20 @@ namespace Szeminarium1_24_02_17_2
                 Gl.Viewport(s);
             };
 
+            playerSquirrelModel.isGoing = false;
+            playerSquirrelModel.isTurning = false;
 
-            Gl.ClearColor(System.Drawing.Color.White);
+            cameraDescriptor2.SetCameraOffsetHeight(100.0f);
+            cameraDescriptor2.SetDistanceToOrigin(300.0f);
+
+
+            Gl.ClearColor(System.Drawing.Color.Black);
 
             SetUpObjects();
 
             LinkProgram();
 
-            //Gl.Enable(EnableCap.CullFace);
+            // Gl.Enable(EnableCap.CullFace);
 
             Gl.Enable(EnableCap.DepthTest);
             Gl.DepthFunc(DepthFunction.Lequal);
@@ -145,28 +162,18 @@ namespace Szeminarium1_24_02_17_2
         {
             switch (key)
             {
-                case Key.Left:
-                    cameraDescriptor.DecreaseZYAngle();
-                    break;
-                    ;
-                case Key.Right:
-                    cameraDescriptor.IncreaseZYAngle();
-                    break;
-                case Key.Down:
-                    cameraDescriptor.IncreaseDistance();
-                    break;
-                case Key.Up:
-                    cameraDescriptor.DecreaseDistance();
-                    break;
-                case Key.U:
-                    cameraDescriptor.IncreaseZXAngle();
-                    break;
-                case Key.D:
-                    cameraDescriptor.DecreaseZXAngle();
-                    break;
-                case Key.Space:
-                    cubeArrangementModel.AnimationEnabeld = !cubeArrangementModel.AnimationEnabeld;
-                    break;
+                case Key.F5:
+                    if (activeCameraNum == 1)
+                    {
+                        activeCameraNum = 2;
+                        activeCamera = cameraDescriptor2;
+                    }
+                    else
+                    {
+                        activeCameraNum = 1;
+                        activeCamera = cameraDescriptor1;
+                    }; break;
+
             }
         }
 
@@ -176,10 +183,88 @@ namespace Szeminarium1_24_02_17_2
             // multithreaded
             // make sure it is threadsafe
             // NO GL calls
-            cubeArrangementModel.AdvanceTime(deltaTime);
+            playerSquirrelModel.isGoing = false;
+            playerSquirrelModel.isTurning = false;
+            appleTimer += (float)deltaTime;
+            pearTimer += (float)deltaTime;
+            if (primaryKeyboard.IsKeyPressed(Key.A))
+            {
+                playerSquirrelModel.isTurning = true;
+                squirrel.steeringAngle = 10.0f;
+            }
+            else if (primaryKeyboard.IsKeyPressed(Key.D))
+            {
+                playerSquirrelModel.isTurning = true;
+                squirrel.steeringAngle = -10.0f;
+            }
+            if (primaryKeyboard.IsKeyPressed(Key.W))
+            {
+                playerSquirrelModel.isGoing = true;
+                squirrel.speed = Math.Min(squirrel.speed + squirrel.acceleration * (float)deltaTime, squirrel.maxSpeed);
+            }
+            else if (primaryKeyboard.IsKeyPressed(Key.S))
+            {
+                playerSquirrelModel.isGoing = true;
+                squirrel.speed = Math.Max(squirrel.speed - squirrel.acceleration * (float)deltaTime, -squirrel.maxSpeed / 2);
+            }
+            else
+            {
+                squirrel.speed *= 0.98f;
+                if (squirrel.speed < 2)
+                {
+                    squirrel.speed = 0;
+                }
+            }
 
+            if (playerSquirrelModel.isTurning && playerSquirrelModel.isGoing)
+            {
+                squirrel.UpdateSteering((float)deltaTime);
+                cameraDescriptor1.IncreaseZYAngle(squirrel.DeltaOrientation);
+            }
+            Vector3D<float> Direction = new Vector3D<float>(MathF.Sin(squirrel.Orientation), 0f, MathF.Cos(squirrel.Orientation));
+            squirrel.updatePosition(Direction * squirrel.speed * (float)deltaTime);
+            cameraDescriptor1.SetTarget(squirrel.Position);
+            if (activeCameraNum == 1)
+            {
+                activeCamera = cameraDescriptor1;
+            }
+
+            appleTimer += 0.01f * (float)deltaTime;
+            float x1 = car1RadiusA * MathF.Cos(appleTimer * 0.3f);
+            float z1 = car1RadiusB * MathF.Sin(appleTimer * 0.3f);
+            apple.Position = new Vector3D<float>(x1, 1.5f, z1);
+
+            float dx1 = -car1RadiusA * MathF.Sin(appleTimer * 0.3f);
+            float dz1 = car1RadiusB * MathF.Cos(appleTimer * 0.3f);
+            apple.Orientation = MathF.Atan2(dz1, dx1);
+            apple.UpdateState();
+
+            pearTimer += 0.012f * (float)deltaTime;
+            float x2 = car2RadiusA * MathF.Cos(pearTimer * 0.3f);
+            float z2 = car2RadiusB * MathF.Sin(pearTimer * 0.3f);
+            pear.Position = new Vector3D<float>(x2, 5f, z2);
+
+            float dx2 = -car2RadiusA * MathF.Sin(pearTimer * 0.3f);
+            float dz2 = car2RadiusB * MathF.Cos(pearTimer * 0.3f);
+            pear.Orientation = MathF.Atan2(dz2, dx2);
+            pear.UpdateState();
+
+            if (squirrel.boundingBox.Intersects(apple.boundingBox) || squirrel.boundingBox.Intersects(pear.boundingBox))
+            {
+                Vector3D<float> position = new Vector3D<float>(26f, 1.8f, 0f);
+                squirrel.SetPosition(position);
+                squirrel.SetRotation(0f);
+                cameraDescriptor1.SetTarget(squirrel.Position);
+                cameraDescriptor1.ResetZYAngle();
+                if (activeCameraNum == 1)
+                {
+                    activeCamera = cameraDescriptor1;
+                }
+            }
             controller.Update((float)deltaTime);
+
         }
+
 
         private static unsafe void Window_Render(double deltaTime)
         {
@@ -188,19 +273,6 @@ namespace Szeminarium1_24_02_17_2
             // GL here
             Gl.Clear(ClearBufferMask.ColorBufferBit);
             Gl.Clear(ClearBufferMask.DepthBufferBit);
-
-            if (DrawWireFrameOnly)
-            {
-                Gl.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Line);
-                Gl.Enable(EnableCap.LineSmooth);
-                Gl.LineWidth(0.5f);
-            }
-            else
-            {
-                Gl.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Fill);
-                Gl.Enable(EnableCap.LineSmooth);
-                Gl.LineWidth(0.5f);
-            }
 
 
             Gl.UseProgram(program);
@@ -213,21 +285,19 @@ namespace Szeminarium1_24_02_17_2
             SetViewerPosition();
             SetShininess();
 
-            //DrawPulsingTeapot();
+            raceTrack.Render(program, TextureUniformVariableName, ModelMatrixVariableName, NormalMatrixVariableName);
 
-            //DrawSphere();
+            squirrel.Render(program, TextureUniformVariableName, ModelMatrixVariableName, NormalMatrixVariableName);
+            apple.Render(program, TextureUniformVariableName, ModelMatrixVariableName, NormalMatrixVariableName);
+            pear.Render(program, TextureUniformVariableName, ModelMatrixVariableName, NormalMatrixVariableName);
 
-            DrawPlate();
-
-            DrawRevolvingCube();
 
             DrawSkyBox();
 
             //ImGuiNET.ImGui.ShowDemoWindow();
-            ImGuiNET.ImGui.Begin("Lighting properties",
+            ImGuiNET.ImGui.Begin("Car Properties",
                 ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar);
-            ImGuiNET.ImGui.SliderFloat("Shininess", ref Shininess, 1, 200);
-            ImGuiNET.ImGui.Checkbox("Draw only wireframe", ref DrawWireFrameOnly);
+            ImGui.Text($"Speed: {(squirrel.speed * 3.6):F2} km/h");
             ImGuiNET.ImGui.End();
 
 
@@ -236,7 +306,7 @@ namespace Szeminarium1_24_02_17_2
 
         private static unsafe void DrawSkyBox()
         {
-            Matrix4X4<float> modelMatrix = Matrix4X4.CreateScale(400f);
+            Matrix4X4<float> modelMatrix = Matrix4X4.CreateScale(1000f);
             SetModelMatrix(modelMatrix);
             Gl.BindVertexArray(skyBox.Vao);
 
@@ -261,60 +331,6 @@ namespace Szeminarium1_24_02_17_2
             CheckError();
         }
 
-        private static unsafe void DrawPlate()
-        {
-            Matrix4X4<float> modelMatrix = Matrix4X4.CreateTranslation(0, 0f, 0f);
-            SetModelMatrix(modelMatrix);
-            Gl.BindVertexArray(glPlate.Vao);
-
-            //int textureLocation = Gl.GetUniformLocation(program, TextureUniformVariableName);
-            //if (textureLocation == -1)
-            //{
-            //    throw new Exception($"{TextureUniformVariableName} uniform not found on shader.");
-            //}
-            //// set texture 0
-            //Gl.Uniform1(textureLocation, 0);
-
-            //Gl.ActiveTexture(TextureUnit.Texture0);
-            //Gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (float)GLEnum.Linear);
-            //Gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (float)GLEnum.Linear);
-            //Gl.BindTexture(TextureTarget.Texture2D, skyBox.Texture.Value);
-
-            Gl.DrawElements(GLEnum.Triangles, glPlate.IndexArrayLength, GLEnum.UnsignedInt, null);
-            Gl.BindVertexArray(0);
-
-            CheckError();
-            //Gl.BindTexture(TextureTarget.Texture2D, 0);
-            //CheckError();
-        }
-
-        private static unsafe void DrawSphere()
-        {
-            Matrix4X4<float> modelMatrix = Matrix4X4.CreateTranslation(10f, 0f, 0f);
-            SetModelMatrix(modelMatrix);
-            Gl.BindVertexArray(glSphere.Vao);
-
-            //int textureLocation = Gl.GetUniformLocation(program, TextureUniformVariableName);
-            //if (textureLocation == -1)
-            //{
-            //    throw new Exception($"{TextureUniformVariableName} uniform not found on shader.");
-            //}
-            //// set texture 0
-            //Gl.Uniform1(textureLocation, 0);
-
-            //Gl.ActiveTexture(TextureUnit.Texture0);
-            //Gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (float)GLEnum.Linear);
-            //Gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (float)GLEnum.Linear);
-            //Gl.BindTexture(TextureTarget.Texture2D, skyBox.Texture.Value);
-
-            Gl.DrawElements(GLEnum.Triangles, glSphere.IndexArrayLength, GLEnum.UnsignedInt, null);
-            Gl.BindVertexArray(0);
-
-            CheckError();
-            //Gl.BindTexture(TextureTarget.Texture2D, 0);
-            //CheckError();
-        }
-
         private static unsafe void SetLightColor()
         {
             int location = Gl.GetUniformLocation(program, LightColorVariableName);
@@ -337,8 +353,7 @@ namespace Szeminarium1_24_02_17_2
                 throw new Exception($"{LightPositionVariableName} uniform not found on shader.");
             }
 
-            Gl.Uniform3(location, 5f, 1f, 0f);
-            //Gl.Uniform3(location, cameraDescriptor.Position.X, cameraDescriptor.Position.Y, cameraDescriptor.Position.Z);
+            Gl.Uniform3(location, 0f, 10f, 0f);
             CheckError();
         }
 
@@ -351,7 +366,7 @@ namespace Szeminarium1_24_02_17_2
                 throw new Exception($"{ViewPosVariableName} uniform not found on shader.");
             }
 
-            Gl.Uniform3(location, cameraDescriptor.Position.X, cameraDescriptor.Position.Y, cameraDescriptor.Position.Z);
+            Gl.Uniform3(location, activeCamera.Position.X, activeCamera.Position.Y, activeCamera.Position.Z);
             CheckError();
         }
 
@@ -366,41 +381,6 @@ namespace Szeminarium1_24_02_17_2
 
             Gl.Uniform1(location, Shininess);
             CheckError();
-        }
-
-        private static unsafe void DrawRevolvingCube()
-        {
-            // set material uniform to metal
-
-            Matrix4X4<float> diamondScale = Matrix4X4.CreateScale(1f);
-            Matrix4X4<float> rotx = Matrix4X4.CreateRotationX((float)Math.PI / 4f);
-            Matrix4X4<float> rotz = Matrix4X4.CreateRotationZ((float)Math.PI / 4f);
-            Matrix4X4<float> rotLocY = Matrix4X4.CreateRotationY((float)cubeArrangementModel.DiamondCubeAngleOwnRevolution);
-            Matrix4X4<float> trans = Matrix4X4.CreateTranslation(4f, 4f, 0f);
-            Matrix4X4<float> rotGlobY = Matrix4X4.CreateRotationY((float)cubeArrangementModel.DiamondCubeAngleRevolutionOnGlobalY);
-            Matrix4X4<float> modelMatrix = diamondScale * rotx * rotz * rotLocY * trans * rotGlobY;
-
-            SetModelMatrix(modelMatrix);
-            Gl.BindVertexArray(glCubeRotating.Vao);
-            Gl.DrawElements(GLEnum.Triangles, glCubeRotating.IndexArrayLength, GLEnum.UnsignedInt, null);
-            Gl.BindVertexArray(0);
-        }
-
-        private static unsafe void DrawPulsingTeapot()
-        {
-            // set material uniform to rubber
-
-            var modelMatrixForCenterCube = Matrix4X4.CreateScale((float)cubeArrangementModel.CenterCubeScale);
-            SetModelMatrix(modelMatrixForCenterCube);
-            Gl.BindVertexArray(teapot.Vao);
-            Gl.DrawElements(GLEnum.Triangles, teapot.IndexArrayLength, GLEnum.UnsignedInt, null);
-            Gl.BindVertexArray(0);
-
-            //var modelMatrixForTable = Matrix4X4.CreateScale(1f, 1f, 1f);
-            //SetModelMatrix(modelMatrixForTable);
-            //Gl.BindVertexArray(table.Vao);
-            //Gl.DrawElements(GLEnum.Triangles, table.IndexArrayLength, GLEnum.UnsignedInt, null);
-            //Gl.BindVertexArray(0);
         }
 
         private static unsafe void SetModelMatrix(Matrix4X4<float> modelMatrix)
@@ -434,7 +414,6 @@ namespace Szeminarium1_24_02_17_2
 
         private static unsafe void SetUpObjects()
         {
-
             float[] face1Color = [1f, 0f, 0f, 1.0f];
             float[] face2Color = [0.0f, 1.0f, 0.0f, 1.0f];
             float[] face3Color = [0.0f, 0.0f, 1.0f, 1.0f];
@@ -442,29 +421,62 @@ namespace Szeminarium1_24_02_17_2
             float[] face5Color = [0.0f, 1.0f, 1.0f, 1.0f];
             float[] face6Color = [1.0f, 1.0f, 0.0f, 1.0f];
 
-            teapot = ObjResourceReader.CreateTeapotWithColor(Gl, face1Color);
+            // Player Car
+            squirrel = new GlObjectForest(Gl, "squirrel");
+            squirrel.SetPosition(new Vector3D<float>(26f, 1.8f, 0f));
+            squirrel.SetScale(0.2f);
+            squirrel.maxSpeed = 30.0f;
+            squirrel.speed = 0f;
+            squirrel.acceleration = 5.0f;
+            squirrel.steeringAngle = 10.0f;
+            squirrel.wheelBase = 2.8f;
+            squirrel.SetBoundingBoxDimensions(1.3f, 2.5f, 6.4f);
 
-            float[] tableColor = [System.Drawing.Color.Azure.R/256f,
-                                  System.Drawing.Color.Azure.G/256f,
-                                  System.Drawing.Color.Azure.B/256f,
-                                  1f];
-            table = GlCube.CreateSquare(Gl, tableColor);
+            // Opponent Car 1
+            apple = new GlObjectForest(Gl, "apple");
+            apple.SetScale(10.0f);
+            apple.SetRotation(90.0f * MathF.PI / 180); // Y-axis rotation
+            apple.SetPosition(new Vector3D<float>(33.0f,1.5f, 0f));
+            apple.speed = 25.0f;
+            car1RadiusA = 35.0f;
+            car1RadiusB = 155.0f;
+            apple.SetBoundingBoxDimensions(0.7f, 1.25f, 3.20f);
 
-            glCubeRotating = GlCube.CreateCubeWithFaceColors(Gl, face1Color, face2Color, face3Color, face4Color, face5Color, face6Color);
+            pear = new GlObjectForest(Gl, "10197_Pear");
+            Vector3D<float> opponent1Position2 = new Vector3D<float>(39.5f, 2.0f, 0f);
+            pear.SetScale(0.5f);
+            pear.SetPosition(opponent1Position2);
+            pear.speed = 27f;
+            car2RadiusA = 40.0f;
+            car2RadiusB = 170.0f;
+            pear.SetBoundingBoxDimensions(2.7f, 1.15f, 0.7f);
+
+            // Terrain
+            float[] tableColor = [
+                System.Drawing.Color.Azure.R / 256f,
+        System.Drawing.Color.Azure.G / 256f,
+        System.Drawing.Color.Azure.B / 256f,
+        1f
+            ];
+
+            GlObject glObject = ObjectResourceReader.CreateObjectWithTextureFromResource(Gl, "terrain.RaceTrack.obj", "terrain.RaceTrack.png");
+            raceTrack = new GlObject(glObject.Vao, glObject.Vertices, glObject.Colors, glObject.Indices, glObject.IndexArrayLength, Gl, glObject.Texture.Value);
+            raceTrack.Scale = Matrix4X4.CreateScale(1.5f);
+            raceTrack.ModelMatrix *= raceTrack.Scale;
 
             skyBox = GlCube.CreateInteriorCube(Gl, "");
-
-            glSphere = GlObject.CreateSphere(5.0f, Gl);
-
-            glPlate = GlObject.CreateChalice(Gl);
         }
 
-        
+
+
 
         private static void Window_Closing()
         {
-            teapot.ReleaseGlObject();
-            glCubeRotating.ReleaseGlObject();
+            raceTrack.ReleaseGlObject();
+            squirrel.Release();
+            apple.Release();
+            pear.Release();
+            // glCubeRotating.ReleaseGlObject();
         }
 
         private static unsafe void SetProjectionMatrix()
@@ -483,7 +495,7 @@ namespace Szeminarium1_24_02_17_2
 
         private static unsafe void SetViewMatrix()
         {
-            var viewMatrix = Matrix4X4.CreateLookAt(cameraDescriptor.Position, cameraDescriptor.Target, cameraDescriptor.UpVector);
+            var viewMatrix = Matrix4X4.CreateLookAt(activeCamera.Position, activeCamera.Target, activeCamera.UpVector);
             int location = Gl.GetUniformLocation(program, ViewMatrixVariableName);
 
             if (location == -1)

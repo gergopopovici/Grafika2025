@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Szeminarium1_24_02_17_2
+namespace pgim2289_project
 {
     internal class UMesh
     {

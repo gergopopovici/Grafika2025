@@ -1,18 +1,23 @@
 ﻿using Silk.NET.Maths;
 
-namespace Szeminarium1_24_02_17_2
+namespace pgim2289_project
+
 {
     internal class CameraDescriptor
     {
-        private double DistanceToOrigin = 20;
+        private double DistanceToOrigin = 30;
 
-        private double AngleToZYPlane = 0;
+        private double AngleToZYPlane = Math.PI / 180 * 36 * 5;
 
-        private double AngleToZXPlane = 0.5;
+        private double AngleToZXPlane = Math.PI / 180 * 2 * 5;
 
         private const double DistanceScaleFactor = 1.1;
 
         private const double AngleChangeStepSize = Math.PI / 180 * 5;
+
+        private float CameraHeightOffset = 5f;
+
+        public Vector3D<float> Target = Vector3D<float>.Zero;
 
         /// <summary>
         /// Gets the position of the camera.
@@ -21,9 +26,11 @@ namespace Szeminarium1_24_02_17_2
         {
             get
             {
-                return GetPointFromAngles(DistanceToOrigin, AngleToZYPlane, AngleToZXPlane);
+                var position = Target + GetPointFromAngles(DistanceToOrigin, AngleToZYPlane, AngleToZXPlane);
+                return new Vector3D<float>(position.X, position.Y + CameraHeightOffset, position.Z);
             }
         }
+
 
         /// <summary>
         /// Gets the up vector of the camera.
@@ -39,18 +46,30 @@ namespace Szeminarium1_24_02_17_2
         /// <summary>
         /// Gets the target point of the camera view.
         /// </summary>
-        public Vector3D<float> Target
+
+
+        public void SetCameraOffsetHeight(float height)
         {
-            get
-            {
-                // For the moment the camera is always pointed at the origin.
-                return Vector3D<float>.Zero;
-            }
+            CameraHeightOffset = height;
         }
 
+        public void SetDistanceToOrigin(float distance)
+        {
+            DistanceToOrigin = distance;
+        }
         public void IncreaseZXAngle()
         {
             AngleToZXPlane += AngleChangeStepSize;
+        }
+
+        public void IncreaseZYAngle(double angles)
+        {
+            AngleToZYPlane += angles;
+        }
+
+        public void ResetZYAngle()
+        {
+            AngleToZYPlane = Math.PI / 180 * 36 * 5;
         }
 
         public void DecreaseZXAngle()
@@ -77,6 +96,11 @@ namespace Szeminarium1_24_02_17_2
         public void DecreaseDistance()
         {
             DistanceToOrigin = DistanceToOrigin / DistanceScaleFactor;
+        }
+
+        public void SetTarget(Vector3D<float> PlayerPosition)
+        {
+            Target = PlayerPosition;
         }
 
         private static Vector3D<float> GetPointFromAngles(double distanceToOrigin, double angleToMinZYPlane, double angleToMinZXPlane)

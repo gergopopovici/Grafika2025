@@ -1,7 +1,7 @@
 ﻿using Silk.NET.OpenGL;
 using StbImageSharp;
 
-namespace Szeminarium1_24_02_17_2
+namespace pgim2289_project
 {
     internal class GlCube : GlObject
     {
@@ -290,7 +290,7 @@ namespace Szeminarium1_24_02_17_2
             // bind texture
             Gl.BindTexture(TextureTarget.Texture2D, texture);
 
-            var skyboxImageResult = ReadTextureImage("skybox.png");
+            var skyboxImageResult = ReadTextureImage("skybox_forest.png");
             var textureBytes = (ReadOnlySpan<byte>)skyboxImageResult.Data.AsSpan();
             // Here we use "result.Width" and "result.Height" to tell OpenGL about how big our texture is.
             Gl.TexImage2D(TextureTarget.Texture2D, 0, InternalFormat.Rgba, (uint)skyboxImageResult.Width,
@@ -321,7 +321,7 @@ namespace Szeminarium1_24_02_17_2
         {
             ImageResult result;
             using (Stream skyeboxStream
-                = typeof(GlCube).Assembly.GetManifestResourceStream("pgim2289_project.Resources." + textureResource))
+                = typeof(GlCube).Assembly.GetManifestResourceStream("pgim2289_project.Resources.skybox." + textureResource))
                 result = ImageResult.FromStream(skyeboxStream, ColorComponents.RedGreenBlueAlpha);
 
             return result;

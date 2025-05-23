@@ -9,15 +9,50 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Resources\skybox.png" />
+    <None Remove="Resources\objects\10197_Pear.obj" />
+    <None Remove="Resources\objects\10197_Pear.png" />
+    <None Remove="Resources\objects\apple.obj" />
+    <None Remove="Resources\objects\apple.png" />
+    <None Remove="Resources\objects\Audi_R8_2017.obj" />
+    <None Remove="Resources\objects\Avent_sport.obj" />
+    <None Remove="Resources\objects\bugatti.mtl" />
+    <None Remove="Resources\objects\bugatti.obj" />
+    <None Remove="Resources\objects\FordGT.png" />
+    <None Remove="Resources\objects\FordGT_base.obj" />
+    <None Remove="Resources\objects\FordGT_WheelFL.obj" />
+    <None Remove="Resources\objects\FordGT_WheelFR.obj" />
+    <None Remove="Resources\objects\FordGT_WheelRL.obj" />
+    <None Remove="Resources\objects\FordGT_WheelRR.obj" />
+    <None Remove="Resources\objects\formula.obj" />
+    <None Remove="Resources\objects\formula.png" />
+    <None Remove="Resources\objects\fruit stand.mtl" />
+    <None Remove="Resources\objects\fruit stand.obj" />
+    <None Remove="Resources\objects\squirrel.obj" />
+    <None Remove="Resources\objects\squirrel.png" />
+    <None Remove="Resources\skybox\skybox_forest.png" />
+    <None Remove="Resources\skybox_forest.png" />
     <None Remove="Resources\teapot.obj" />
+    <None Remove="Resources\terrain\RaceTrack.mtl" />
+    <None Remove="Resources\terrain\RaceTrack.obj" />
+    <None Remove="Resources\terrain\RaceTrack.png" />
     <None Remove="Shaders\FragmentShader.frag" />
     <None Remove="Shaders\VertexShader.vert" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Resources\skybox.png" />
-    <EmbeddedResource Include="Resources\teapot.obj" />
+    <EmbeddedResource Include="Resources\objects\10197_Pear.obj" />
+    <EmbeddedResource Include="Resources\objects\10197_Pear.png" />
+    <EmbeddedResource Include="Resources\objects\apple.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\objects\apple.obj" />
+    <EmbeddedResource Include="Resources\objects\squirrel.obj" />
+    <EmbeddedResource Include="Resources\objects\squirrel.png" />
+    <EmbeddedResource Include="Resources\skybox\skybox_forest.png" />
+    <EmbeddedResource Include="Resources\terrain\RaceTrack.mtl" />
+    <EmbeddedResource Include="Resources\terrain\RaceTrack.obj" />
+    <EmbeddedResource Include="Resources\terrain\RaceTrack.png" />
     <EmbeddedResource Include="Shaders\FragmentShader.frag" />
     <EmbeddedResource Include="Shaders\VertexShader.vert" />
   </ItemGroup>
